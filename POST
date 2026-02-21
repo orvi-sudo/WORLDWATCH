@@ -1,1 +1,108 @@
-netlify/functions/generate-post.js
+// Netlify Function: generate-post.js
+// Proxies requests to Claude API using the secret ANTHROPIC_API_KEY env variable
+// The key never reaches the browser
+
+exports.handler = async (event) => {
+  // Only allow POST
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, body: 'Method Not Allowed' };
+  }
+
+  const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+  if (!ANTHROPIC_API_KEY) {
+    return { statusCode: 500, body: JSON.stringify({ error: 'API key not configured' }) };
+  }
+
+  let body;
+  try {
+    body = JSON.parse(event.body);
+  } catch {
+    return { statusCode: 400, body: JSON.stringify({ error: 'Invalid JSON' }) };
+  }
+
+  const { event: ev, lang } = body;
+  if (!ev) return { statusCode: 400, body: JSON.stringify({ error: 'Missing event data' }) };
+
+  const isEs = lang === 'es';
+
+  const prompt = isEs
+    ? `Eres un periodista experto en geopolítica y mercados financieros. Escribe un artículo de noticias profesional en español sobre este evento:
+
+Título: ${ev.title}
+Tipo: ${ev.type}
+Ubicación: ${ev.location}
+Descripción: ${ev.description}
+Confianza: ${ev.confidence}
+Fuente: ${ev.source || 'GDELT'}
+${ev.important ? `Impacto en mercados: ${ev.importance}` : ''}
+
+El artículo debe tener:
+1. Un titular atractivo para SEO (H1)
+2. Un párrafo de contexto (qué está pasando y por qué importa)
+3. Un párrafo de antecedentes (historia del conflicto/zona/situación)
+4. Un párrafo de impacto (consecuencias humanitarias, económicas o geopolíticas)
+${ev.important ? '5. Un párrafo específico sobre el impacto en mercados financieros (Bitcoin, petróleo, oro, etc.)' : ''}
+5. Un párrafo de perspectiva (qué puede pasar a continuación)
+
+Usa un tono periodístico profesional. Entre 400-600 palabras. Incluye etiquetas HTML básicas (h1, h2, p). NO incluyas fecha, autor ni "WorldWatch" en el texto.`
+
+    : `You are an expert journalist specializing in geopolitics and financial markets. Write a professional news article in English about this event:
+
+Title: ${ev.title}
+Type: ${ev.type}
+Location: ${ev.location}
+Description: ${ev.description}
+Confidence: ${ev.confidence}
+Source: ${ev.source || 'GDELT'}
+${ev.important ? `Market impact: ${ev.importance}` : ''}
+
+The article must include:
+1. An SEO-optimized headline (H1)
+2. A context paragraph (what is happening and why it matters)
+3. A background paragraph (history of the conflict/region/situation)
+4. An impact paragraph (humanitarian, economic or geopolitical consequences)
+${ev.important ? '5. A specific paragraph on financial market impact (Bitcoin, oil, gold, etc.)' : ''}
+5. A perspective paragraph (what may happen next)
+
+Use a professional journalistic tone. 400-600 words. Include basic HTML tags (h1, h2, p). Do NOT include date, author or "WorldWatch" in the text.`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1024,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return { statusCode: response.status, body: JSON.stringify({ error: data.error?.message || 'API error' }) };
+    }
+
+    const text = data.content?.[0]?.text || '';
+
+    // Generate SEO slug from title
+    const slug = ev.title
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .slice(0, 60);
+
+    return {
+      statusCode: 200,
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      body: JSON.stringify({ article: text, slug, title: ev.title, location: ev.location, type: ev.type })
+    };
+
+  } catch (err) {
+    return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
+  }
+};
