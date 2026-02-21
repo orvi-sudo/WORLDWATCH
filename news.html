@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WorldWatch News — Real-Time Global Events Analysis</title>
+<meta name="description" content="In-depth analysis of global conflicts, earthquakes, cyberattacks and geopolitical events and their impact on Bitcoin, oil, gold and financial markets.">
+<meta name="keywords" content="world events map, geopolitical analysis, bitcoin price events, oil price conflicts, real-time world news, global intelligence map">
+<meta property="og:title" content="WorldWatch — Global Events & Market Intelligence">
+<meta property="og:description" content="Real-time analysis of world events and their impact on financial markets. Conflicts, earthquakes, cyberattacks and more.">
+<meta property="og:type" content="website">
+<link rel="canonical" href="https://teal-kitten-ca5325.netlify.app/news.html">
+<link rel="manifest" href="manifest.json">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&family=Orbitron:wght@700&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg: #04080d;
+  --surface: #081018;
+  --surface2: #0c1a26;
+  --border: #152a40;
+  --border2: #1e3d5a;
+  --accent: #00c8f0;
+  --green: #00e87a;
+  --red: #ff1f40;
+  --orange: #ff6a00;
+  --yellow: #ffc800;
+  --gold: #ffd700;
+  --text: #b8d8ee;
+  --text-dim: #3a6080;
+  --mono: 'Share Tech Mono', monospace;
+  --ui: 'Rajdhani', sans-serif;
+  --head: 'Orbitron', sans-serif;
+  --body-font: 'Libre Baskerville', serif;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body { background:var(--bg); color:var(--text); font-family:var(--ui); min-height:100vh; }
+
+/* ── HEADER ── */
+.site-header {
+  background:var(--surface); border-bottom:1px solid var(--border);
+  padding:0 24px; height:54px; display:flex; align-items:center;
+  justify-content:space-between; position:sticky; top:0; z-index:100;
+}
+.header-logo { font-family:var(--head); font-size:18px; color:var(--accent); letter-spacing:4px; text-decoration:none; }
+.header-logo em { color:rgba(0,200,240,0.4); font-style:normal; }
+.header-nav { display:flex; gap:20px; }
+.header-nav a { color:var(--text-dim); text-decoration:none; font-family:var(--mono); font-size:11px; letter-spacing:1px; transition:color 0.2s; }
+.header-nav a:hover, .header-nav a.active { color:var(--accent); }
+
+/* ── HERO ── */
+.hero {
+  padding:60px 24px 40px; text-align:center;
+  background:linear-gradient(180deg, rgba(0,200,240,0.05) 0%, transparent 100%);
+  border-bottom:1px solid var(--border);
+}
+.hero-tag { font-family:var(--mono); font-size:10px; color:var(--green); letter-spacing:3px; margin-bottom:12px; }
+.hero h1 { font-family:var(--head); font-size:clamp(22px,4vw,38px); color:var(--accent); letter-spacing:2px; margin-bottom:12px; }
+.hero p { font-family:var(--ui); font-size:15px; color:var(--text-dim); max-width:600px; margin:0 auto 20px; line-height:1.6; }
+.hero-cta { display:inline-flex; align-items:center; gap:8px; background:var(--accent); color:var(--bg); padding:10px 24px; font-family:var(--mono); font-size:12px; letter-spacing:1px; text-decoration:none; border-radius:2px; transition:opacity 0.2s; }
+.hero-cta:hover { opacity:0.85; }
+
+/* ── MAIN LAYOUT ── */
+.main { max-width:1200px; margin:0 auto; padding:32px 24px; display:grid; grid-template-columns:1fr 320px; gap:32px; }
+@media(max-width:768px) { .main { grid-template-columns:1fr; } .sidebar { display:none; } }
+
+/* ── FILTERS BAR ── */
+.filters-bar {
+  display:flex; gap:8px; flex-wrap:wrap; margin-bottom:24px;
+  padding-bottom:16px; border-bottom:1px solid var(--border);
+}
+.filter-btn {
+  background:var(--surface); border:1px solid var(--border);
+  color:var(--text-dim); padding:5px 12px; font-family:var(--mono);
+  font-size:10px; cursor:pointer; border-radius:2px; transition:all 0.2s;
+  letter-spacing:0.5px;
+}
+.filter-btn.on { border-color:var(--accent); color:var(--accent); background:rgba(0,200,240,0.08); }
+.filter-btn:hover { border-color:var(--border2); color:var(--text); }
+
+/* ── EVENT CARDS ── */
+.events-grid { display:flex; flex-direction:column; gap:16px; }
+
+.event-card {
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:3px; overflow:hidden; transition:border-color 0.2s;
+  cursor:pointer;
+}
+.event-card:hover { border-color:var(--border2); }
+.event-card.important { border-color:rgba(255,215,0,0.4); }
+.event-card.important:hover { border-color:var(--gold); }
+
+.card-top { padding:14px 16px 10px; }
+.card-meta { display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
+.card-type { font-family:var(--mono); font-size:9px; letter-spacing:1px; padding:2px 8px; border-radius:2px; border:1px solid; }
+.card-time { font-family:var(--mono); font-size:9px; color:var(--text-dim); }
+.card-loc  { font-family:var(--mono); font-size:9px; color:var(--text-dim); }
+.card-important-badge {
+  font-family:var(--mono); font-size:9px; color:var(--gold);
+  background:rgba(255,215,0,0.1); border:1px solid rgba(255,215,0,0.3);
+  padding:2px 8px; border-radius:2px;
+}
+.card-title { font-family:var(--ui); font-size:17px; font-weight:700; color:var(--text); line-height:1.3; margin-bottom:6px; }
+.event-card.important .card-title { color:var(--gold); }
+.card-desc { font-size:13px; color:var(--text-dim); line-height:1.5; }
+
+.card-markets { 
+  padding:8px 16px; background:rgba(0,200,240,0.04); 
+  border-top:1px solid var(--border); 
+  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+}
+.market-tag {
+  font-family:var(--mono); font-size:9px;
+  background:var(--surface2); border:1px solid var(--border2);
+  padding:2px 8px; border-radius:2px; color:var(--accent);
+}
+.card-impact { font-family:var(--mono); font-size:9px; color:var(--yellow); flex:1; min-width:0; }
+
+.card-actions { padding:10px 16px; border-top:1px solid var(--border); display:flex; gap:8px; }
+.btn-article {
+  background:var(--accent); color:var(--bg); border:none;
+  padding:6px 16px; font-family:var(--mono); font-size:10px;
+  cursor:pointer; border-radius:2px; letter-spacing:0.5px; transition:opacity 0.2s;
+}
+.btn-article:hover { opacity:0.8; }
+.btn-article:disabled { opacity:0.4; cursor:not-allowed; }
+.btn-map { 
+  background:transparent; color:var(--text-dim); border:1px solid var(--border);
+  padding:6px 16px; font-family:var(--mono); font-size:10px;
+  cursor:pointer; border-radius:2px; text-decoration:none;
+  transition:all 0.2s; display:inline-flex; align-items:center;
+}
+.btn-map:hover { border-color:var(--accent); color:var(--accent); }
+
+/* ── ARTICLE MODAL ── */
+.modal-overlay {
+  display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8);
+  z-index:1000; overflow-y:auto; padding:40px 16px;
+}
+.modal-overlay.open { display:block; }
+.modal {
+  max-width:740px; margin:0 auto; background:var(--surface);
+  border:1px solid var(--border2); border-radius:4px; overflow:hidden;
+}
+.modal-header {
+  padding:16px 20px; border-bottom:1px solid var(--border);
+  display:flex; justify-content:space-between; align-items:center;
+}
+.modal-header-title { font-family:var(--mono); font-size:10px; color:var(--text-dim); letter-spacing:2px; }
+.modal-close { background:none; border:none; color:var(--text-dim); font-size:20px; cursor:pointer; padding:0 4px; }
+.modal-close:hover { color:var(--text); }
+.modal-body { padding:28px 32px; }
+.modal-loading { text-align:center; padding:40px; font-family:var(--mono); color:var(--text-dim); font-size:12px; }
+.modal-loading .spin { display:inline-block; animation:spin 1s linear infinite; font-size:20px; margin-bottom:12px; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* Article content styles */
+.article-content h1 { font-family:var(--body-font); font-size:clamp(20px,3vw,28px); color:var(--text); line-height:1.3; margin-bottom:16px; }
+.article-content h2 { font-family:var(--ui); font-size:14px; color:var(--accent); letter-spacing:2px; text-transform:uppercase; margin:24px 0 8px; }
+.article-content p { font-family:var(--body-font); font-size:15px; line-height:1.8; color:#9ab8d0; margin-bottom:16px; }
+.article-meta { font-family:var(--mono); font-size:10px; color:var(--text-dim); margin-bottom:20px; padding-bottom:16px; border-bottom:1px solid var(--border); display:flex; gap:16px; flex-wrap:wrap; }
+.article-market-box { background:var(--surface2); border:1px solid var(--border2); padding:12px 16px; border-radius:3px; margin-top:20px; }
+.article-market-box h3 { font-family:var(--mono); font-size:10px; color:var(--yellow); letter-spacing:2px; margin-bottom:8px; }
+.article-market-box p { font-family:var(--ui); font-size:13px; color:var(--text-dim); line-height:1.5; margin:0; }
+
+/* ── SIDEBAR ── */
+.sidebar { display:flex; flex-direction:column; gap:20px; }
+.sidebar-card { background:var(--surface); border:1px solid var(--border); border-radius:3px; padding:16px; }
+.sidebar-title { font-family:var(--mono); font-size:9px; color:var(--text-dim); letter-spacing:2px; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid var(--border); }
+.sidebar-stat { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid rgba(21,42,64,0.5); font-size:12px; }
+.sidebar-stat:last-child { border:none; }
+.ss-label { color:var(--text-dim); font-family:var(--mono); font-size:10px; }
+.ss-val { color:var(--text); font-family:var(--mono); font-size:11px; font-weight:700; }
+.ss-val.up { color:var(--green); }
+.ss-val.down { color:var(--red); }
+
+.seo-links { display:flex; flex-direction:column; gap:6px; }
+.seo-link { color:var(--accent); font-family:var(--mono); font-size:10px; text-decoration:none; padding:4px 0; border-bottom:1px solid var(--border); letter-spacing:0.5px; }
+.seo-link:hover { color:var(--text); }
+
+/* ── SEO SECTION ── */
+.seo-section { margin-top:48px; padding-top:32px; border-top:1px solid var(--border); }
+.seo-section h2 { font-family:var(--head); font-size:16px; color:var(--accent); letter-spacing:3px; margin-bottom:16px; }
+.seo-section p { font-family:var(--ui); font-size:14px; color:var(--text-dim); line-height:1.7; margin-bottom:12px; }
+.seo-tags { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+.seo-tag { font-family:var(--mono); font-size:10px; color:var(--text-dim); background:var(--surface2); border:1px solid var(--border); padding:4px 10px; border-radius:2px; }
+
+/* ── FOOTER ── */
+footer { border-top:1px solid var(--border); padding:24px; text-align:center; font-family:var(--mono); font-size:10px; color:var(--text-dim); margin-top:48px; }
+footer a { color:var(--accent); text-decoration:none; }
+
+/* Type colors */
+.type-conflict  { color:#ff4444; border-color:#ff444466; background:rgba(255,68,68,0.08); }
+.type-attack    { color:#ff6a00; border-color:#ff6a0066; background:rgba(255,106,0,0.08); }
+.type-quake     { color:#ffc800; border-color:#ffc80066; background:rgba(255,200,0,0.08); }
+.type-flood     { color:#00c8f0; border-color:#00c8f066; background:rgba(0,200,240,0.08); }
+.type-hurricane { color:#9b40ff; border-color:#9b40ff66; background:rgba(155,64,255,0.08); }
+.type-fire      { color:#ff4500; border-color:#ff450066; background:rgba(255,69,0,0.08); }
+.type-protest   { color:#ffd700; border-color:#ffd70066; background:rgba(255,215,0,0.08); }
+.type-health    { color:#00e87a; border-color:#00e87a66; background:rgba(0,232,122,0.08); }
+.type-nuclear   { color:#ff00ff; border-color:#ff00ff66; background:rgba(255,0,255,0.08); }
+.type-cyber     { color:#00ffcc; border-color:#00ffcc66; background:rgba(0,255,204,0.08); }
+.type-accident  { color:#aaaaaa; border-color:#aaaaaa66; background:rgba(170,170,170,0.08); }
+</style>
+
+<!-- Schema.org structured data for SEO -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "WorldWatch",
+  "url": "https://teal-kitten-ca5325.netlify.app",
+  "description": "Real-time global intelligence map tracking conflicts, earthquakes, cyberattacks and geopolitical events with financial market impact analysis",
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": "https://teal-kitten-ca5325.netlify.app/news.html?q={search_term_string}",
+    "query-input": "required name=search_term_string"
+  }
+}
+</script>
+</head>
+<body>
+
+<header class="site-header">
+  <a href="/" class="header-logo">WORLD<em>WATCH</em></a>
+  <nav class="header-nav">
+    <a href="/">🗺 LIVE MAP</a>
+    <a href="/news.html" class="active">📰 NEWS</a>
+  </nav>
+</header>
+
+<section class="hero">
+  <div class="hero-tag">● REAL-TIME GLOBAL INTELLIGENCE</div>
+  <h1>WORLD EVENTS & MARKET ANALYSIS</h1>
+  <p>AI-powered analysis of global conflicts, natural disasters, cyberattacks and geopolitical events — and their real-time impact on Bitcoin, oil, gold and financial markets.</p>
+  <a href="/" class="hero-cta">🗺 OPEN LIVE MAP</a>
+</section>
+
+<div class="main">
+  <div class="content">
+    <div class="filters-bar" id="filtersBar"></div>
+    <div id="eventsGrid" class="events-grid">
+      <div style="font-family:var(--mono);font-size:11px;color:var(--text-dim);padding:20px 0">
+        ⏳ Loading events...
+      </div>
+    </div>
+
+    <!-- SEO text section -->
+    <section class="seo-section">
+      <h2>WHAT IS WORLDWATCH?</h2>
+      <p>WorldWatch is a real-time global intelligence platform that aggregates breaking news, seismic events, military conflicts, cyberattacks and natural disasters onto an interactive world map. Our AI analyzes each event and assesses its potential impact on financial markets including Bitcoin (BTC), crude oil (WTI), gold, the S&P 500, Nasdaq and EUR/USD.</p>
+      <p>By correlating geopolitical events with market movements, WorldWatch helps traders, analysts and curious citizens understand why markets move and what global events are driving price action in real time.</p>
+      <h2>HOW DOES IT WORK?</h2>
+      <p>We pull data from multiple sources including GDELT (Global Database of Events, Language and Tone), USGS real-time earthquake feeds, and live aircraft transponder data. Our AI engine then classifies each event by type, location, severity and potential market impact — automatically highlighting critical events that could move oil prices, trigger gold rallies or cause equity volatility.</p>
+      <div class="seo-tags">
+        <span class="seo-tag">real-time world map</span>
+        <span class="seo-tag">geopolitical events</span>
+        <span class="seo-tag">bitcoin price impact</span>
+        <span class="seo-tag">oil price conflicts</span>
+        <span class="seo-tag">gold safe haven</span>
+        <span class="seo-tag">live earthquake map</span>
+        <span class="seo-tag">military conflicts map</span>
+        <span class="seo-tag">market intelligence</span>
+        <span class="seo-tag">global crisis tracker</span>
+        <span class="seo-tag">cyberattack monitor</span>
+      </div>
+    </section>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-card">
+      <div class="sidebar-title">📈 LIVE MARKETS</div>
+      <div id="sidebarMarkets">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--text-dim)">Loading...</div>
+      </div>
+    </div>
+    <div class="sidebar-card">
+      <div class="sidebar-title">🔍 SEARCH TOPICS</div>
+      <div class="seo-links">
+        <a href="?type=conflict" class="seo-link">⚔️ Armed Conflicts</a>
+        <a href="?type=attack" class="seo-link">💥 Terror & Attacks</a>
+        <a href="?type=quake" class="seo-link">🌍 Earthquakes</a>
+        <a href="?type=nuclear" class="seo-link">☢️ Nuclear Events</a>
+        <a href="?type=cyber" class="seo-link">💻 Cyberattacks</a>
+        <a href="?type=health" class="seo-link">🦠 Health Crises</a>
+        <a href="?type=fire" class="seo-link">🔥 Wildfires</a>
+        <a href="?type=flood" class="seo-link">🌊 Floods</a>
+        <a href="?important=true" class="seo-link">⭐ High Impact Events</a>
+      </div>
+    </div>
+    <div class="sidebar-card">
+      <div class="sidebar-title">ℹ️ ABOUT</div>
+      <p style="font-size:12px;color:var(--text-dim);line-height:1.6">WorldWatch aggregates open-source intelligence from GDELT, USGS and live transponder data. AI analysis is for informational purposes only and does not constitute financial advice.</p>
+    </div>
+  </aside>
+</div>
+
+<!-- ARTICLE MODAL -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-header-title" id="modalLabel">AI ANALYSIS</span>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody">
+      <div class="modal-loading">
+        <div class="spin">⚙</div><br>
+        Generating AI analysis...
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <p>© 2025 WorldWatch · Real-time global intelligence · Data: GDELT, USGS, OpenSky · <a href="/">Open Live Map</a></p>
+  <p style="margin-top:8px">AI analysis is for informational purposes only and does not constitute financial or investment advice.</p>
+</footer>
+
+<script>
+// ── SHARED EVENT DATA (same as main app) ──────────────────────
+function getEvents() {
+  const now = Date.now();
+  const h = (hrs) => new Date(now - hrs*3600000).toISOString();
+  return [
+    { id:1,  title:'Heavy artillery exchange on eastern front line', type:'conflict', lat:48.5, lon:37.5, location:'Donetsk, Ukraine', time:h(2), confidence:'confirmed', source:'Reuters', description:'Sustained artillery fire reported along a 40km front. Multiple civilian areas affected. Artillery units from both sides active since dawn.', important:true, importance:'⚠️ Active war zone. Energy infrastructure at risk. GOLD and OIL historically spike during escalation near Russian borders.', marketImpact:['GOLD','OIL','EUR'] },
+    { id:2,  title:'Airstrikes on military infrastructure reported', type:'conflict', lat:32.5, lon:44.4, location:'Baghdad Governorate, Iraq', time:h(5), confidence:'confirmed', source:'AP', description:'Coalition forces confirm targeted strikes on suspected militant infrastructure. Iraqi parliament demands explanation.', important:false, marketImpact:['OIL'] },
+    { id:3,  title:'Houthi forces claim Red Sea vessel attack', type:'attack', lat:14.5, lon:43.5, location:'Red Sea, Yemen', time:h(1), confidence:'confirmed', source:'Reuters', description:'Anti-ship missile targeted a commercial tanker in the southern Red Sea. Crew evacuated. Ship adrift.', important:true, importance:'🚢 Red Sea shipping lane disruption. Affects 12% of global trade. OIL prices rise when Suez route is threatened.', marketImpact:['OIL','SPX','NDX'] },
+    { id:4,  title:'Naval standoff escalates in disputed island chain', type:'conflict', lat:12.0, lon:114.0, location:'South China Sea', time:h(3), confidence:'confirmed', source:'Reuters', description:'Philippine Coast Guard vessel shadowed by Chinese warship. Manila files diplomatic protest. USS carrier group repositions.', important:true, importance:'⚡ South China Sea conflict affects global semiconductor supply chains. NASDAQ sensitive.', marketImpact:['NDX','SPX'] },
+    { id:5,  title:'Drone strikes target Aramco export facility', type:'attack', lat:26.3, lon:50.1, location:'Eastern Province, Saudi Arabia', time:h(0.5), confidence:'unconfirmed', source:'Al Arabiya', description:'Unconfirmed reports of drone strikes near Abqaiq oil processing facility. Saudi Aramco not commenting.', important:true, importance:'🛢️ CRITICAL — Abqaiq processes ~7% of global oil supply. Any confirmed strike could send OIL up 10-15% in hours.', marketImpact:['OIL','GOLD','SPX'] },
+    { id:6,  title:'Terror attack thwarted at major airport', type:'attack', lat:48.9, lon:2.5, location:'Paris, France', time:h(4), confidence:'confirmed', source:'Le Monde', description:'French DGSI arrested suspects with explosives near CDG airport. Authorities raise terror alert to highest level.', important:true, importance:'✈️ Airport security incidents affect airline stocks and travel sentiment across Europe.', marketImpact:['EUR','SPX'] },
+    { id:7,  title:'M6.8 earthquake — tsunami warning issued then cancelled', type:'quake', lat:37.8, lon:142.3, location:'Honshu coast, Japan', time:h(3), confidence:'confirmed', source:'USGS', description:'Magnitude 6.8 at 35km depth. Tsunami warning briefly issued then cancelled. Damage reported in coastal towns.', important:true, importance:'🌊 Japanese earthquakes near industrial zones affect global supply chains. Nikkei and tech supply lines sensitive.', marketImpact:['NDX','SPX'] },
+    { id:8,  title:'WHO declares mpox health emergency — new clade', type:'health', lat:-1.0, lon:29.0, location:'DRC, Eastern Province', time:h(12), confidence:'confirmed', source:'WHO', description:'New mpox clade showing increased transmissibility detected. WHO PHEIC declared. Travel advisories issued.', important:true, importance:'🦠 WHO health emergencies historically trigger broad market selloffs. COVID-19 precedent: -30% on equities.', marketImpact:['SPX','NDX','EUR'] },
+    { id:9,  title:'IAEA: Zaporizhzhia plant loses external power again', type:'nuclear', lat:47.5, lon:33.0, location:'Zaporizhzhia NPP, Ukraine', time:h(1), confidence:'confirmed', source:'IAEA', description:'IAEA monitoring team reports loss of external power supply. Emergency generators activated. Sixth such incident.', important:true, importance:'☢️ Nuclear plant incidents near conflict zones cause immediate GOLD surge and EUR/USD drops.', marketImpact:['GOLD','EUR','OIL'] },
+    { id:10, title:'Critical infrastructure cyberattack — banking systems down', type:'cyber', lat:59.4, lon:24.7, location:'Tallinn, Estonia', time:h(3), confidence:'confirmed', source:'CERT-EE', description:'Coordinated DDoS attack targeted banking and government systems. Attribution points to state actor. NATO article 5 discussions begin.', important:true, importance:'💻 State-level cyberattacks on NATO members trigger defense stock rallies and broad market uncertainty.', marketImpact:['NDX','SPX','BTC'] },
+    { id:11, title:'Category 4 hurricane — mandatory evacuation ordered', type:'hurricane', lat:18.0, lon:-72.0, location:'Caribbean Sea / Haiti', time:h(1), confidence:'confirmed', source:'NHC', description:'Major hurricane with 250km/h sustained winds. Tracking toward Hispaniola. Mandatory evacuation for 2 million people.', important:false, marketImpact:['OIL'] },
+    { id:12, title:'Mass anti-austerity strike — capital paralysed', type:'protest', lat:-34.6, lon:-58.4, location:'Buenos Aires, Argentina', time:h(5), confidence:'confirmed', source:'Clarín', description:'Hundreds of thousands march. General strike halts transport and industry. Government refuses dialogue.', important:false, marketImpact:[] },
+    { id:13, title:'Catastrophic monsoon floods — 200,000 displaced', type:'flood', lat:23.8, lon:90.4, location:'Sylhet Division, Bangladesh', time:h(4), confidence:'confirmed', source:'BDRCS', description:'Unprecedented monsoon flooding submerging entire districts. Government declares national emergency.', important:false, marketImpact:[] },
+    { id:14, title:'Wildfire emergency — 20,000 hectares — evacuations', type:'fire', lat:37.5, lon:-119.5, location:'Sierra Nevada, California, USA', time:h(3), confidence:'confirmed', source:'Cal Fire', description:'Fast-moving wildfire driven by strong winds and low humidity. 15 communities under mandatory evacuation.', important:false, marketImpact:[] },
+    { id:15, title:'Bridge collapse blocks major trade route', type:'accident', lat:22.3, lon:114.2, location:'Guangdong, China', time:h(6), confidence:'confirmed', source:'Xinhua', description:'Highway bridge section collapsed during heavy rain. Major trade route between manufacturing hubs disrupted.', important:true, importance:'🏗️ Trade route disruption in Pearl River Delta affects global manufacturing supply chains.', marketImpact:['NDX','SPX'] },
+  ];
+}
+
+const TYPE_LABELS = {
+  conflict:'CONFLICT', attack:'ATTACK', quake:'EARTHQUAKE', flood:'FLOOD',
+  hurricane:'HURRICANE', fire:'WILDFIRE', protest:'PROTEST', health:'HEALTH',
+  nuclear:'NUCLEAR', cyber:'CYBER', accident:'ACCIDENT'
+};
+
+let allEvents = getEvents();
+let activeFilter = null;
+
+// ── RENDER FILTERS ────────────────────────────────────────────
+function renderFilters() {
+  const bar = document.getElementById('filtersBar');
+  const types = [...new Set(allEvents.map(e => e.type))];
+  let html = `<button class="filter-btn ${!activeFilter?'on':''}" onclick="setFilter(null)">ALL (${allEvents.length})</button>`;
+  html += `<button class="filter-btn ${activeFilter==='important'?'on':''}" onclick="setFilter('important')">⭐ IMPORTANT</button>`;
+  types.forEach(t => {
+    const count = allEvents.filter(e => e.type===t).length;
+    html += `<button class="filter-btn ${activeFilter===t?'on':''}" onclick="setFilter('${t}')">${TYPE_LABELS[t]||t.toUpperCase()} (${count})</button>`;
+  });
+  bar.innerHTML = html;
+}
+
+function setFilter(f) {
+  activeFilter = f;
+  renderFilters();
+  renderEvents();
+}
+
+// ── RENDER EVENT CARDS ────────────────────────────────────────
+function renderEvents() {
+  const grid = document.getElementById('eventsGrid');
+  let evs = activeFilter === 'important'
+    ? allEvents.filter(e => e.important)
+    : activeFilter
+    ? allEvents.filter(e => e.type === activeFilter)
+    : allEvents;
+
+  // Sort: important first, then by time
+  evs = evs.sort((a,b) => (b.important?1:0) - (a.important?1:0) || new Date(b.time) - new Date(a.time));
+
+  if (!evs.length) { grid.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--text-dim);padding:20px 0">No events found.</div>'; return; }
+
+  grid.innerHTML = evs.map(ev => {
+    const timeAgo = getTimeAgo(ev.time);
+    const typeClass = `type-${ev.type}`;
+    const marketsHtml = ev.marketImpact?.length
+      ? `<div class="card-markets">
+          ${ev.important ? `<span class="card-impact">${ev.importance}</span>` : ''}
+          ${ev.marketImpact.map(m => `<span class="market-tag">${m}</span>`).join('')}
+         </div>` : '';
+
+    return `
+    <article class="event-card ${ev.important?'important':''}" itemscope itemtype="https://schema.org/NewsArticle">
+      <div class="card-top">
+        <div class="card-meta">
+          <span class="card-type ${typeClass}">${TYPE_LABELS[ev.type]||ev.type}</span>
+          ${ev.important ? '<span class="card-important-badge">⭐ HIGH IMPACT</span>' : ''}
+          <span class="card-time">${timeAgo}</span>
+          <span class="card-loc">📍 ${ev.location}</span>
+        </div>
+        <h2 class="card-title" itemprop="headline">${ev.title}</h2>
+        <p class="card-desc" itemprop="description">${ev.description}</p>
+      </div>
+      ${marketsHtml}
+      <div class="card-actions">
+        <button class="btn-article" onclick="generateArticle(${ev.id})" id="btn-${ev.id}">
+          ✦ AI ANALYSIS
+        </button>
+        <a href="/" class="btn-map">🗺 VIEW ON MAP</a>
+      </div>
+    </article>`;
+  }).join('');
+}
+
+function getTimeAgo(iso) {
+  if (!iso) return '—';
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff/60000);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins/60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs/24)}d ago`;
+}
+
+// ── FETCH LIVE BITCOIN PRICE FOR SIDEBAR ─────────────────────
+async function loadSidebarMarkets() {
+  try {
+    const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd&include_24hr_change=true');
+    const d = await r.json();
+    const btc = d.bitcoin;
+    const eth = d.ethereum;
+    document.getElementById('sidebarMarkets').innerHTML = `
+      <div class="sidebar-stat">
+        <span class="ss-label">₿ BITCOIN</span>
+        <span class="ss-val ${btc.usd_24h_change>=0?'up':'down'}">$${Math.round(btc.usd).toLocaleString()} ${btc.usd_24h_change>=0?'▲':'▼'}${Math.abs(btc.usd_24h_change).toFixed(1)}%</span>
+      </div>
+      <div class="sidebar-stat">
+        <span class="ss-label">Ξ ETHEREUM</span>
+        <span class="ss-val ${eth.usd_24h_change>=0?'up':'down'}">$${Math.round(eth.usd).toLocaleString()} ${eth.usd_24h_change>=0?'▲':'▼'}${Math.abs(eth.usd_24h_change).toFixed(1)}%</span>
+      </div>
+      <div class="sidebar-stat">
+        <span class="ss-label">● LIVE</span>
+        <span class="ss-val" style="color:var(--text-dim)">${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})} UTC</span>
+      </div>
+    `;
+  } catch(e) {
+    document.getElementById('sidebarMarkets').innerHTML = '<div style="font-family:var(--mono);font-size:10px;color:var(--text-dim)">Markets unavailable</div>';
+  }
+}
+
+// ── GENERATE AI ARTICLE ───────────────────────────────────────
+async function generateArticle(eventId) {
+  const ev = allEvents.find(e => e.id === eventId);
+  if (!ev) return;
+
+  const btn = document.getElementById('btn-'+eventId);
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ GENERATING...'; }
+
+  // Open modal
+  document.getElementById('modalOverlay').classList.add('open');
+  document.getElementById('modalLabel').textContent = ev.type.toUpperCase() + ' · AI ANALYSIS';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="modal-loading">
+      <div class="spin">⚙</div><br>
+      Generating AI analysis for:<br>
+      <strong style="color:var(--text)">${ev.title}</strong>
+    </div>`;
+
+  try {
+    const res = await fetch('/.netlify/functions/generate-post', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event: ev, lang: 'en' })
+    });
+
+    if (!res.ok) throw new Error('Function error ' + res.status);
+    const data = await res.json();
+
+    document.getElementById('modalBody').innerHTML = `
+      <div class="article-meta">
+        <span>📍 ${ev.location}</span>
+        <span>🕐 ${getTimeAgo(ev.time)}</span>
+        <span>📡 ${ev.source || 'GDELT'}</span>
+        <span class="card-type type-${ev.type}" style="padding:1px 6px;border-radius:2px;border:1px solid">${TYPE_LABELS[ev.type]}</span>
+      </div>
+      <div class="article-content">${data.article}</div>
+      ${ev.marketImpact?.length ? `
+      <div class="article-market-box">
+        <h3>⚡ MARKET IMPACT ASSESSMENT</h3>
+        <p>${ev.importance || 'Monitor: ' + ev.marketImpact.join(', ')}</p>
+        <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+          ${ev.marketImpact.map(m => `<span class="market-tag">${m}</span>`).join('')}
+        </div>
+      </div>` : ''}
+      <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);font-family:var(--mono);font-size:9px;color:var(--text-dim)">
+        AI-generated analysis. Not financial advice. Sources: ${ev.source || 'GDELT'}.
+      </div>
+    `;
+
+    if (btn) { btn.disabled = false; btn.textContent = '✓ ANALYSIS DONE'; }
+
+  } catch(err) {
+    document.getElementById('modalBody').innerHTML = `
+      <div style="padding:20px;font-family:var(--mono);font-size:11px;color:var(--red)">
+        ⚠️ Error generating analysis: ${err.message}<br><br>
+        <span style="color:var(--text-dim)">Make sure the Netlify function is deployed and ANTHROPIC_API_KEY is set.</span>
+      </div>`;
+    if (btn) { btn.disabled = false; btn.textContent = '✦ AI ANALYSIS'; }
+  }
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+}
+
+// Close modal on overlay click
+document.getElementById('modalOverlay').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeModal();
+});
+
+// ── URL PARAMS (for SEO filter links) ────────────────────────
+const params = new URLSearchParams(window.location.search);
+if (params.get('type')) activeFilter = params.get('type');
+if (params.get('important')) activeFilter = 'important';
+
+// ── INIT ─────────────────────────────────────────────────────
+renderFilters();
+renderEvents();
+loadSidebarMarkets();
+setInterval(loadSidebarMarkets, 60000);
+</script>
+</body>
+</html>
