@@ -1,0 +1,37 @@
+{
+  "name": "WorldWatch — Global Intelligence Map",
+  "short_name": "WorldWatch",
+  "description": "Real-time global intelligence map — events, aircraft, vessels worldwide",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#04080d",
+  "theme_color": "#04080d",
+  "lang": "en",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "categories": ["news", "utilities", "navigation"],
+  "shortcuts": [
+    {
+      "name": "Open Map",
+      "short_name": "Map",
+      "description": "Open the live world map",
+      "url": "/",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

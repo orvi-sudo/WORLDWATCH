@@ -1,0 +1,2188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="WorldWatch">
+<meta name="application-name" content="WorldWatch">
+<meta name="theme-color" content="#04080d">
+<meta name="description" content="Real-time global intelligence map — events, aircraft, vessels worldwide">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-512.png">
+<title>WORLDWATCH</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<style>
+:root {
+  --bg: #04080d;
+  --surface: #081018;
+  --surface2: #0c1a26;
+  --border: #152a40;
+  --border2: #1e3d5a;
+  --accent: #00c8f0;
+  --green: #00e87a;
+  --red: #ff1f40;
+  --orange: #ff6a00;
+  --yellow: #ffc800;
+  --purple: #9b40ff;
+  --text: #b8d8ee;
+  --text-dim: #3a6080;
+  --mono: 'Share Tech Mono', monospace;
+  --ui: 'Rajdhani', sans-serif;
+  --head: 'Orbitron', sans-serif;
+  --header-h: 50px;
+  --bottom-h: 56px;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html, body { height:100%; height:100dvh; overflow:hidden; background:var(--bg); color:var(--text); font-family:var(--ui); }
+
+/* ── LOADING ── */
+#loading {
+  position:fixed; inset:0; background:var(--bg); z-index:9999;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px;
+  transition:opacity 0.6s;
+}
+.load-logo { font-family:var(--head); font-size:clamp(22px,6vw,40px); color:var(--accent); letter-spacing:6px; text-shadow:0 0 30px rgba(0,200,240,0.6); }
+.load-bar { width:min(280px,80vw); height:2px; background:var(--border); border-radius:1px; overflow:hidden; }
+.load-fill { height:100%; background:linear-gradient(90deg,var(--accent),var(--green)); border-radius:1px; width:0; transition:width 0.4s ease; }
+.load-text { font-family:var(--mono); font-size:11px; color:var(--text-dim); letter-spacing:2px; }
+
+/* ── LAYOUT ── */
+#app { display:flex; flex-direction:column; height:100%; }
+
+/* ── HEADER ── */
+header {
+  height:var(--header-h); background:var(--surface); border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 12px; flex-shrink:0; z-index:500; position:relative;
+}
+.logo { font-family:var(--head); font-size:15px; font-weight:900; letter-spacing:3px; color:var(--accent); text-shadow:0 0 15px rgba(0,200,240,0.4); white-space:nowrap; }
+.logo em { color:var(--text-dim); font-style:normal; font-weight:400; }
+.hdr-center { display:flex; align-items:center; gap:10px; }
+.live-dot { width:7px; height:7px; background:var(--green); border-radius:50%; box-shadow:0 0 8px var(--green); animation:blink 1.4s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.live-label { font-family:var(--mono); font-size:10px; color:var(--green); letter-spacing:1px; }
+#clock { font-family:var(--mono); font-size:11px; color:var(--accent); letter-spacing:1px; }
+.lang-sw { display:flex; gap:3px; }
+.lb { background:transparent; border:1px solid var(--border); color:var(--text-dim); padding:3px 8px; font-family:var(--mono); font-size:10px; cursor:pointer; border-radius:2px; transition:all 0.2s; }
+.lb.on { background:var(--accent); color:var(--bg); border-color:var(--accent); }
+
+/* ── BODY (map + sidebars) ── */
+.body { flex:1; display:flex; overflow:hidden; position:relative; min-height:0; }
+
+/* ── MAP ── */
+#map {
+  position:absolute;
+  top:0; left:0; right:0; bottom:0;
+  background:var(--bg);
+}
+
+/* ── LEFT PANEL (desktop) ── */
+.panel-left {
+  width:240px; flex-shrink:0; background:var(--surface);
+  border-right:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; min-height:0;
+}
+
+/* ── RIGHT PANEL (desktop) ── */
+.panel-right {
+  width:260px; flex-shrink:0; background:var(--surface);
+  border-left:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; min-height:0;
+}
+
+/* ── SECTION HEADER ── */
+.sec-hdr {
+  padding:10px 14px 8px; font-family:var(--mono); font-size:9px;
+  color:var(--text-dim); letter-spacing:2px; border-bottom:1px solid var(--border);
+  flex-shrink:0;
+}
+
+/* ── FILTERS ── */
+.filter-wrap { padding:10px 12px; border-bottom:1px solid var(--border); flex-shrink:0; }
+.filter-grid { display:grid; grid-template-columns:1fr 1fr; gap:5px; }
+.fb {
+  background:var(--surface2); border:1px solid var(--border); color:var(--text-dim);
+  padding:6px 5px; font-family:var(--ui); font-size:11px; font-weight:600;
+  cursor:pointer; transition:all 0.15s; display:flex; align-items:center; gap:5px;
+  border-radius:2px; white-space:nowrap; overflow:hidden;
+}
+.fb.on { border-color:var(--accent); color:var(--accent); background:rgba(0,200,240,0.07); }
+.fb-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+
+/* ── STATS ── */
+.stats-wrap { padding:10px 12px; border-bottom:1px solid var(--border); flex-shrink:0; }
+.stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.sc { background:var(--surface2); border:1px solid var(--border); padding:7px 9px; border-radius:2px; }
+.sv { font-family:var(--mono); font-size:18px; color:var(--accent); line-height:1; }
+.sl { font-size:9px; color:var(--text-dim); margin-top:2px; letter-spacing:0.5px; }
+
+/* ── FEED ── */
+.feed { flex:1; overflow-y:auto; }
+.feed::-webkit-scrollbar { width:3px; }
+.feed::-webkit-scrollbar-thumb { background:var(--border2); }
+.ei {
+  padding:9px 14px; border-bottom:1px solid rgba(21,42,64,0.6);
+  cursor:pointer; transition:background 0.15s; animation:fadeIn 0.3s ease;
+}
+@keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
+.ei:active, .ei:hover { background:var(--surface2); }
+.ei-top { display:flex; align-items:flex-start; gap:6px; margin-bottom:3px; }
+.ei-icon { font-size:13px; flex-shrink:0; line-height:1.4; }
+.ei-title { font-size:11px; font-weight:600; color:var(--text); flex:1; line-height:1.35; }
+.ei-bot { display:flex; justify-content:space-between; align-items:center; }
+.ei-loc { font-family:var(--mono); font-size:9px; color:var(--text-dim); }
+.ei-time { font-family:var(--mono); font-size:9px; color:var(--text-dim); }
+.badge {
+  font-size:8px; padding:2px 5px; border-radius:2px; font-family:var(--mono);
+  font-weight:700; letter-spacing:0.5px; flex-shrink:0;
+}
+.b-ok { background:rgba(0,232,122,0.12); color:var(--green); border:1px solid var(--green); }
+.b-maybe { background:rgba(255,200,0,0.12); color:var(--yellow); border:1px solid var(--yellow); }
+.b-unk { background:rgba(255,31,64,0.12); color:var(--red); border:1px solid var(--red); }
+
+/* ── DETAIL PANEL ── */
+.detail-body { flex:1; overflow-y:auto; padding:14px; }
+.detail-body::-webkit-scrollbar { width:3px; }
+.detail-body::-webkit-scrollbar-thumb { background:var(--border2); }
+.d-empty { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:10px; color:var(--text-dim); text-align:center; }
+.d-empty-ic { font-size:28px; opacity:0.2; }
+.d-empty-tx { font-family:var(--mono); font-size:10px; letter-spacing:1px; line-height:1.6; }
+#detailContent { display:none; }
+.d-title { font-size:13px; font-weight:700; color:var(--text); margin-bottom:12px; line-height:1.4; }
+.d-row { display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid rgba(21,42,64,0.5); font-size:11px; }
+.d-k { color:var(--text-dim); font-family:var(--mono); font-size:9px; }
+.d-v { color:var(--text); font-weight:600; text-align:right; max-width:60%; }
+.d-desc { margin-top:10px; font-size:11px; color:var(--text-dim); line-height:1.6; }
+.disclaimer {
+  margin-top:10px; padding:7px 9px;
+  background:rgba(255,200,0,0.07); border:1px solid rgba(255,200,0,0.25);
+  border-radius:2px; font-size:10px; color:var(--yellow); font-family:var(--mono); line-height:1.5;
+}
+.d-src { display:inline-block; margin-top:8px; font-family:var(--mono); font-size:9px; color:var(--accent); text-decoration:none; border-bottom:1px solid rgba(0,200,240,0.3); }
+
+/* ── UPDATE BAR ── */
+.upd-bar { padding:6px 12px; border-top:1px solid var(--border); flex-shrink:0; }
+.upd-txt { font-family:var(--mono); font-size:9px; color:var(--text-dim); margin-bottom:4px; }
+.upd-track { height:2px; background:var(--border); border-radius:1px; overflow:hidden; }
+.upd-fill { height:100%; background:var(--accent); width:0; transition:width 0.5s linear; }
+
+/* ── BOTTOM NAV (mobile only) ── */
+.bottom-nav {
+  display:none; height:var(--bottom-h);
+  background:var(--surface); border-top:1px solid var(--border);
+  flex-shrink:0;
+}
+.bnav { display:flex; height:100%; }
+.bntab {
+  flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:3px; cursor:pointer; border:none; background:transparent; color:var(--text-dim);
+  font-family:var(--mono); font-size:9px; letter-spacing:1px; transition:color 0.2s;
+  border-top:2px solid transparent;
+}
+.bntab.on { color:var(--accent); border-top-color:var(--accent); }
+.bntab-ic { font-size:18px; }
+
+/* ── MOBILE DRAWER ── */
+.drawer {
+  display:none; position:fixed; bottom:var(--bottom-h); left:0; right:0;
+  background:var(--surface); border-top:1px solid var(--border);
+  z-index:400; max-height:55vh; overflow-y:auto;
+  transform:translateY(100%); transition:transform 0.3s ease;
+}
+.drawer.markets-drawer {
+  max-height:52vh;
+}
+.drawer.open { transform:translateY(0); }
+.drawer-handle { width:36px; height:3px; background:var(--border2); border-radius:2px; margin:10px auto 6px; }
+
+/* ── MAP OVERLAYS ── */
+.map-corner { position:absolute; width:18px; height:18px; z-index:300; pointer-events:none; }
+.map-corner.tl { top:8px; left:8px; border-top:2px solid var(--accent); border-left:2px solid var(--accent); }
+.map-corner.tr { top:8px; right:8px; border-top:2px solid var(--accent); border-right:2px solid var(--accent); }
+.map-corner.bl { bottom:8px; left:8px; border-bottom:2px solid var(--accent); border-left:2px solid var(--accent); }
+.map-corner.br { bottom:8px; right:8px; border-bottom:2px solid var(--accent); border-right:2px solid var(--accent); }
+.map-coords {
+  position:absolute; bottom:14px; left:50%; transform:translateX(-50%);
+  z-index:300; font-family:var(--mono); font-size:9px; color:var(--accent);
+  background:rgba(4,8,13,0.75); padding:3px 8px; border:1px solid var(--border); pointer-events:none;
+}
+
+/* ── LEAFLET OVERRIDES ── */
+.leaflet-container { background:var(--bg) !important; }
+.leaflet-popup-content-wrapper {
+  background:var(--surface2); border:1px solid var(--border2);
+  border-radius:3px; color:var(--text); font-family:var(--ui);
+  box-shadow:0 4px 24px rgba(0,0,0,0.6); padding:0;
+}
+.leaflet-popup-content { margin:12px 14px; font-size:12px; }
+.leaflet-popup-tip { background:var(--surface2); }
+.leaflet-popup-close-button { color:var(--text-dim) !important; font-size:16px !important; top:6px !important; right:8px !important; }
+.pop-title { font-weight:700; font-size:13px; margin-bottom:5px; }
+.pop-row { font-size:11px; color:var(--text-dim); margin-bottom:2px; }
+.pop-badge { margin-top:6px; display:inline-block; }
+.custom-marker { background:transparent; border:none; }
+
+/* ── RESPONSIVE ── */
+@media (max-width:768px) {
+  .panel-left, .panel-right, .panel-markets { display:none !important; }
+  .bottom-nav { display:flex; }
+  .drawer { display:block; }
+  .map-coords { bottom:calc(var(--bottom-h) + 10px); font-size:8px; }
+  /* Hide desktop-only elements */
+  .layer-toggle { bottom:calc(var(--bottom-h) + 48px); }
+  .search-box { width:calc(100% - 80px); }
+}
+@media (max-width:480px) {
+  .logo { font-size:13px; letter-spacing:2px; }
+  #clock { display:none; }
+}
+
+/* ── SEARCH ── */
+.search-box {
+  position:absolute; top:10px; left:50%; transform:translateX(-50%);
+  z-index:400; display:flex; gap:0; width:min(340px,80vw);
+}
+.search-input {
+  flex:1; background:rgba(8,16,24,0.92); border:1px solid var(--border2);
+  border-right:none; color:var(--text); font-family:var(--mono); font-size:12px;
+  padding:8px 12px; outline:none; letter-spacing:0.5px;
+  border-radius:2px 0 0 2px;
+}
+.search-input::placeholder { color:var(--text-dim); }
+.search-input:focus { border-color:var(--accent); }
+.search-btn {
+  background:var(--accent); border:none; color:var(--bg); padding:8px 12px;
+  cursor:pointer; font-family:var(--mono); font-size:13px; border-radius:0 2px 2px 0;
+  transition:opacity 0.2s;
+}
+.search-btn:hover { opacity:0.8; }
+.search-results {
+  position:absolute; top:100%; left:0; right:0;
+  background:rgba(8,16,24,0.97); border:1px solid var(--border2);
+  border-top:none; max-height:180px; overflow-y:auto; display:none;
+}
+.search-result-item {
+  padding:8px 12px; font-size:11px; cursor:pointer; border-bottom:1px solid var(--border);
+  transition:background 0.15s; font-family:var(--ui);
+}
+.search-result-item:hover { background:var(--surface2); color:var(--accent); }
+
+/* ── CLUSTER OVERRIDE ── */
+.marker-cluster-small, .marker-cluster-medium, .marker-cluster-large {
+  background:rgba(0,200,240,0.15) !important;
+}
+.marker-cluster-small div, .marker-cluster-medium div, .marker-cluster-large div {
+  background:rgba(0,200,240,0.35) !important;
+  color:#fff !important; font-family:var(--mono) !important;
+  font-size:11px !important; font-weight:700 !important;
+}
+
+/* ── USGS LIVE BADGE ── */
+.live-source {
+  display:inline-flex; align-items:center; gap:4px;
+  font-family:var(--mono); font-size:9px; color:var(--green);
+  background:rgba(0,232,122,0.1); border:1px solid rgba(0,232,122,0.3);
+  padding:2px 6px; border-radius:2px; margin-left:6px;
+}
+
+/* ── MAP LAYER TOGGLE ── */
+.layer-toggle {
+  position:absolute; bottom:40px; right:10px; z-index:400;
+  display:flex; flex-direction:column; gap:4px;
+}
+.lt-btn {
+  background:rgba(8,16,24,0.92); border:1px solid var(--border2);
+  color:var(--text-dim); padding:6px 10px; font-family:var(--mono); font-size:10px;
+  cursor:pointer; border-radius:2px; transition:all 0.2s; white-space:nowrap;
+  letter-spacing:0.5px;
+}
+.lt-btn.on { border-color:var(--accent); color:var(--accent); background:rgba(0,200,240,0.1); }
+
+
+/* ── PWA INSTALL BANNER ── */
+#installBanner {
+  display:none; position:fixed; bottom:calc(var(--bottom-h) + 8px); left:50%;
+  transform:translateX(-50%); z-index:600;
+  background:var(--surface2); border:1px solid var(--accent);
+  padding:10px 16px; border-radius:4px;
+  display:flex; align-items:center; gap:10px;
+  font-family:var(--mono); font-size:11px; color:var(--text);
+  box-shadow:0 4px 20px rgba(0,200,240,0.2);
+  animation: slideUp 0.3s ease;
+  white-space:nowrap;
+}
+@keyframes slideUp { from{opacity:0;transform:translateX(-50%) translateY(20px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+@keyframes slideInRight { from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:translateX(0)} }
+#installBanner button {
+  background:var(--accent); border:none; color:var(--bg);
+  padding:5px 12px; font-family:var(--mono); font-size:10px;
+  cursor:pointer; border-radius:2px; font-weight:700;
+}
+#installBanner .close-banner {
+  background:transparent; color:var(--text-dim); padding:4px 6px; font-size:14px;
+}
+
+
+/* ── MARKETS PANEL ── */
+.panel-markets {
+  width:280px; flex-shrink:0; background:var(--surface);
+  border-left:1px solid var(--border); display:flex; flex-direction:column;
+  overflow:hidden;
+}
+.market-card {
+  padding:10px 14px; border-bottom:1px solid var(--border);
+  cursor:pointer; transition:background 0.15s; flex-shrink:0;
+}
+.market-card:hover { background:var(--surface2); }
+.market-card.selected { background:var(--surface2); border-left:3px solid var(--accent); }
+.mc-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
+.mc-name { font-family:var(--mono); font-size:10px; color:var(--text-dim); letter-spacing:1px; }
+.mc-price { font-family:var(--mono); font-size:14px; font-weight:700; color:var(--text); }
+.mc-change { font-family:var(--mono); font-size:11px; font-weight:700; }
+.mc-change.up { color:var(--green); }
+.mc-change.down { color:var(--red); }
+.mc-chart { height:40px; width:100%; }
+.market-detail { flex:1; padding:14px; overflow-y:auto; display:none; flex-direction:column; gap:10px; }
+.market-detail.visible { display:flex; }
+.md-title { font-family:var(--mono); font-size:10px; color:var(--text-dim); letter-spacing:2px; margin-bottom:4px; }
+.md-big-chart { width:100%; height:120px; }
+.alert-card {
+  padding:8px 10px; border-radius:2px; border:1px solid;
+  font-size:11px; line-height:1.5; animation:fadeIn 0.4s ease;
+}
+.alert-card.high {
+  background:rgba(255,31,64,0.08); border-color:rgba(255,31,64,0.4); color:#ffaaaa;
+}
+.alert-card.medium {
+  background:rgba(255,200,0,0.08); border-color:rgba(255,200,0,0.4); color:#ffe066;
+}
+.alert-card.low {
+  background:rgba(0,200,240,0.08); border-color:rgba(0,200,240,0.3); color:var(--accent);
+}
+.alert-card .alert-header {
+  font-family:var(--mono); font-size:9px; font-weight:700; margin-bottom:4px;
+  display:flex; align-items:center; gap:6px;
+}
+.relevance-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+
+/* Event marker HIGH relevance pulse */
+.high-relevance-marker {
+  animation: glow-pulse 1.5s infinite;
+}
+@keyframes glow-pulse {
+  0%,100% { filter: drop-shadow(0 0 6px #ff1f40) drop-shadow(0 0 12px #ff1f40); }
+  50% { filter: drop-shadow(0 0 2px #ff1f40); }
+}
+@keyframes goldPulse {
+  0%,100% { box-shadow: 0 0 16px #ffd70088, 0 0 32px #ffd70044; border-color:#ffd700; }
+  50% { box-shadow: 0 0 6px #ffd70044; border-color:#b8960c; }
+}
+
+/* Sparkline canvas */
+canvas.sparkline { display:block; }
+
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loading">
+  <div class="load-logo">WORLD<span style="opacity:0.4">WATCH</span></div>
+  <div class="load-bar"><div class="load-fill" id="loadFill"></div></div>
+  <div class="load-text" id="loadText">INITIALIZING...</div>
+</div>
+
+<!-- APP -->
+<div id="app">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">WORLD<em>WATCH</em> <span style="font-size:9px;color:var(--text-dim);font-family:var(--mono);font-weight:400">v5.0</span></div>
+    <div class="hdr-center">
+      <div class="live-dot"></div>
+      <span class="live-label" id="liveLabel">LIVE</span>
+      <span id="clock"></span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="font-family:var(--mono);font-size:9px;color:var(--text-dim)" id="nextUpd"></span>
+      <div class="lang-sw">
+        <button class="lb on" onclick="setLang('en')">EN</button>
+        <button class="lb" onclick="setLang('es')">ES</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- BODY -->
+  <div class="body">
+
+    <!-- LEFT PANEL -->
+    <div class="panel-left">
+      <div class="filter-wrap">
+        <div class="sec-hdr" data-i18n="filters">— FILTERS —</div>
+        <div class="filter-grid" id="filterGrid"></div>
+      </div>
+      <div class="stats-wrap">
+        <div class="sec-hdr" data-i18n="stats">— LIVE STATS —</div>
+        <div class="stats-grid">
+          <div class="sc"><div class="sv" id="sPl">—</div><div class="sl" data-i18n="aircraft">AIRCRAFT</div></div>
+          <div class="sc"><div class="sv" id="sSh">—</div><div class="sl" data-i18n="vessels">VESSELS</div></div>
+          <div class="sc"><div class="sv" id="sEv">0</div><div class="sl" data-i18n="events">EVENTS</div></div>
+          <div class="sc"><div class="sv" id="sAl" style="color:var(--red)">0</div><div class="sl" data-i18n="alerts">ALERTS</div></div>
+        </div>
+      </div>
+      <div class="sec-hdr" data-i18n="feed">— EVENT FEED —</div>
+      <div class="feed" id="feed"></div>
+      <div class="upd-bar">
+        <div class="upd-txt" id="updTxt">GDELT • ADSB • AIS</div>
+        <div class="upd-track"><div class="upd-fill" id="updFill"></div></div>
+      </div>
+    </div>
+
+    <!-- MAP -->
+    <div style="flex:1;position:relative;min-width:0;min-height:0;height:100%;">
+      <div id="map"></div>
+      <div class="map-corner tl"></div>
+      <div class="map-corner tr"></div>
+      <div class="map-corner bl"></div>
+      <div class="map-corner br"></div>
+      <div class="map-coords" id="coords">LAT 0.000 · LON 0.000</div>
+      <!-- SEARCH -->
+      <div class="search-box" id="searchBox">
+        <input class="search-input" id="searchInput" type="text" placeholder="🔍 Search location..." autocomplete="off" autocorrect="off" spellcheck="false"/>
+        <button class="search-btn" onclick="doSearch()">→</button>
+        <div class="search-results" id="searchResults"></div>
+      </div>
+      <!-- LAYER TOGGLE -->
+      <div class="layer-toggle">
+        <button class="lt-btn on" id="btn-dark" onclick="setLayer('dark')">🗺 DARK</button>
+        <button class="lt-btn" id="btn-sat" onclick="setLayer('sat')">🛰 SAT</button>
+        <button class="lt-btn" id="btn-topo" onclick="setLayer('topo')">🏔 TOPO</button>
+      </div>
+    </div>
+
+    <!-- MARKETS PANEL -->
+    <div class="panel-markets" id="panelMarkets">
+      <div class="sec-hdr">— MARKETS —
+        <span id="mktStatus" style="float:right;color:var(--green);font-size:9px">● LIVE</span>
+      </div>
+      <div id="marketCards"></div>
+      <div class="market-detail" id="marketDetail">
+        <div class="md-title" id="mdTitle">SELECT A MARKET</div>
+        <canvas class="md-big-chart" id="mdChart"></canvas>
+        <div class="md-title" style="margin-top:8px">⚡ GEOPOLITICAL ALERTS</div>
+        <div id="mdAlerts"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="panel-right">
+      <div class="sec-hdr" data-i18n="detail">— EVENT DETAIL —</div>
+      <div class="detail-body" id="detailBody">
+        <div class="d-empty" id="dEmpty">
+          <div class="d-empty-ic">🛰️</div>
+          <div class="d-empty-tx" data-i18n="selectHint">SELECT AN EVENT<br>TO VIEW DETAILS</div>
+        </div>
+        <div id="detailContent">
+          <div class="d-title" id="dTitle"></div>
+          <div id="dRows"></div>
+          <div class="d-desc" id="dDesc"></div>
+          <div class="disclaimer" id="dDisc" style="display:none"></div>
+          <a class="d-src" id="dSrc" href="#" target="_blank" style="display:none"></a>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /body -->
+
+  <!-- BOTTOM NAV (mobile) -->
+  <div class="bottom-nav">
+    <div class="bnav">
+      <button class="bntab on" onclick="mobileTab('map')" id="tab-map">
+        <span class="bntab-ic">🗺️</span>
+        <span data-i18n="map">MAP</span>
+      </button>
+      <button class="bntab" onclick="mobileTab('events')" id="tab-events">
+        <span class="bntab-ic">📡</span>
+        <span data-i18n="feed">EVENTS</span>
+      </button>
+      <button class="bntab" onclick="mobileTab('filters')" id="tab-filters">
+        <span class="bntab-ic">⚙️</span>
+        <span data-i18n="filters">FILTERS</span>
+      </button>
+      <button class="bntab" onclick="mobileTab('detail')" id="tab-detail">
+        <span class="bntab-ic">📋</span>
+        <span data-i18n="detail">DETAIL</span>
+      </button>
+      <button class="bntab" onclick="mobileTab('markets')" id="tab-markets">
+        <span class="bntab-ic">📈</span>
+        <span>MARKETS</span>
+      </button>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<!-- MOBILE DRAWER -->
+<div class="drawer" id="drawer">
+  <div class="drawer-handle"></div>
+  <div id="drawerContent"></div>
+</div>
+
+<script>
+// ── I18N ──────────────────────────────────────────────────────
+const T = {
+  en: {
+    filters:'— FILTERS —', stats:'— LIVE STATS —', aircraft:'AIRCRAFT', vessels:'VESSELS',
+    events:'EVENTS', alerts:'ALERTS', feed:'— EVENTS —', detail:'— DETAIL —',
+    map:'MAP', selectHint:'SELECT AN EVENT\nTO VIEW DETAILS',
+    live:'LIVE', confirmed:'CONFIRMED', unconfirmed:'UNCONFIRMED', rumor:'UNVERIFIED',
+    src:'SOURCE', time:'TIME', loc:'LOCATION', type:'TYPE', coords:'COORDINATES',
+    disc_u:'⚠ UNCONFIRMED — Pending official verification.',
+    disc_r:'⚠ UNVERIFIED — Single source. Treat with caution.',
+    next:'NEXT UPD',
+    load:['INITIALIZING...','CONNECTING GDELT...','LOADING AIRCRAFT...','CALIBRATING...','READY'],
+    searchPlaceholder:'🔍 Search location...',
+    demo:'DEMO DATA • GDELT UNAVAILABLE',
+    live_data:'LIVE • GDELT + ADSB',
+  },
+  es: {
+    filters:'— FILTROS —', stats:'— ESTADÍSTICAS —', aircraft:'AERONAVES', vessels:'BARCOS',
+    events:'EVENTOS', alerts:'ALERTAS', feed:'— EVENTOS —', detail:'— DETALLE —',
+    map:'MAPA', selectHint:'SELECCIONA UN EVENTO\nPARA VER DETALLES',
+    live:'EN VIVO', confirmed:'CONFIRMADO', unconfirmed:'SIN CONFIRMAR', rumor:'NO VERIFICADO',
+    src:'FUENTE', time:'HORA', loc:'UBICACIÓN', type:'TIPO', coords:'COORDENADAS',
+    disc_u:'⚠ SIN CONFIRMAR — Pendiente de verificación oficial.',
+    disc_r:'⚠ NO VERIFICADO — Fuente única. Tratar con precaución.',
+    next:'PRÓX. ACT.',
+    load:['INICIANDO...','CONECTANDO GDELT...','CARGANDO AERONAVES...','CALIBRANDO...','LISTO'],
+    searchPlaceholder:'🔍 Buscar ubicación...',
+    demo:'DEMO • GDELT NO DISPONIBLE',
+    live_data:'EN VIVO • GDELT + ADSB',
+  }
+};
+let lang = 'en';
+const t = k => T[lang][k] || k;
+function setLang(l) {
+  lang = l;
+  // Update language buttons
+  document.querySelectorAll('.lb').forEach(b => b.classList.toggle('on', b.textContent === l.toUpperCase()));
+  // Update all data-i18n elements
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const k = el.getAttribute('data-i18n');
+    if (T[l][k]) el.textContent = T[l][k];
+  });
+  // Update live label
+  const ll = document.getElementById('liveLabel');
+  if (ll) ll.textContent = t('live');
+  // Update search placeholder
+  const si = document.getElementById('searchInput');
+  if (si) si.placeholder = t('searchPlaceholder') || '🔍 Search location...';
+  // Re-render filters and feed in desktop panels
+  renderFilters();
+  renderFeed();
+  // If mobile drawer is open, refresh it
+  if (mobileDrawerTab) mobileTab(mobileDrawerTab);
+}
+
+// ── CATEGORIES ────────────────────────────────────────────────
+const CATS = [
+  { id:'conflict',  ic:'💥', col:'#ff1f40', label:{en:'Conflict',   es:'Conflicto'} },
+  { id:'attack',    ic:'🎯', col:'#ff6a00', label:{en:'Attack',     es:'Atentado'} },
+  { id:'quake',     ic:'🌍', col:'#ffc800', label:{en:'Earthquake', es:'Terremoto'} },
+  { id:'flood',     ic:'🌊', col:'#00aaff', label:{en:'Flood',      es:'Inundación'} },
+  { id:'hurricane', ic:'🌀', col:'#9b40ff', label:{en:'Hurricane',  es:'Huracán'} },
+  { id:'fire',      ic:'🔥', col:'#ff4400', label:{en:'Wildfire',   es:'Incendio'} },
+  { id:'accident',  ic:'🚂', col:'#607080', label:{en:'Accident',   es:'Accidente'} },
+  { id:'protest',   ic:'✊', col:'#00e87a', label:{en:'Protest',    es:'Protesta'} },
+  { id:'health',    ic:'🦠', col:'#e040fb', label:{en:'Health',     es:'Salud'} },
+  { id:'nuclear',   ic:'☢️', col:'#ffee00', label:{en:'Nuclear',    es:'Nuclear'} },
+  { id:'cyber',     ic:'💻', col:'#00e5ff', label:{en:'Cyber',      es:'Ciberat.'} },
+  { id:'plane',     ic:'✈️', col:'#00c8f0', label:{en:'Aircraft',   es:'Aeronave'} },
+  { id:'ship',      ic:'🚢', col:'#0066ff', label:{en:'Vessel',     es:'Barco'} },
+  { id:'military',  ic:'🛩', col:'#8b0000', label:{en:'Military',   es:'Militar'} },
+  { id:'cargo',     ic:'📦', col:'#8b4513', label:{en:'Cargo',      es:'Carga'} },
+];
+
+let activeFilters = new Set(CATS.map(c => c.id));
+
+function getCat(id) { return CATS.find(c => c.id === id) || CATS[0]; }
+
+function renderFilters(container) {
+  const grid = container || document.getElementById('filterGrid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  CATS.forEach(cat => {
+    const b = document.createElement('button');
+    b.className = 'fb' + (activeFilters.has(cat.id) ? ' on' : '');
+    b.innerHTML = `<span class="fb-dot" style="background:${cat.col}"></span>${cat.label[lang]}`;
+    b.onclick = () => { toggleFilter(cat.id); b.classList.toggle('on', activeFilters.has(cat.id)); if(container) renderFilters(container); };
+    grid.appendChild(b);
+  });
+}
+
+function toggleFilter(id) {
+  activeFilters.has(id) ? activeFilters.delete(id) : activeFilters.add(id);
+  updateVisibility();
+}
+
+// ── MAP ───────────────────────────────────────────────────────
+let map, markers=[], planeM=[], shipM=[], events=[];
+let clusterGroup, planeGroup, shipGroup;
+let currentLayer = null;
+const LAYERS = {
+  dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+  sat:  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  topo: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+};
+
+function isMobile() { return window.innerWidth <= 768; }
+
+function applyMobileLayout() {
+  const pm = document.getElementById('panelMarkets');
+  const pl = document.querySelector('.panel-left');
+  const pr = document.querySelector('.panel-right');
+  if (isMobile()) {
+    if (pm) pm.style.display = 'none';
+    if (pl) pl.style.display = 'none';
+    if (pr) pr.style.display = 'none';
+  } else {
+    if (pm) pm.style.display = 'flex';
+    if (pl) pl.style.display = 'flex';
+    if (pr) pr.style.display = 'flex';
+  }
+}
+
+function initMap() {
+  map = L.map('map', { center:[20,10], zoom:3, zoomControl:true, attributionControl:false });
+  setLayer('dark');
+
+  // Cluster group for events
+  clusterGroup = L.markerClusterGroup({
+    maxClusterRadius: 40,
+    disableClusteringAtZoom: 8,
+    spiderfyOnMaxZoom: true,
+    showCoverageOnHover: false,
+    iconCreateFunction: (cluster) => {
+      const count = cluster.getChildCount();
+      const size = count < 10 ? 32 : count < 50 ? 38 : 44;
+      return L.divIcon({
+        html: `<div style="
+          width:${size}px;height:${size}px;border-radius:50%;
+          background:rgba(0,200,240,0.2);border:2px solid var(--accent);
+          display:flex;align-items:center;justify-content:center;
+          font-family:var(--mono);font-size:11px;color:#fff;font-weight:700;
+          box-shadow:0 0 10px rgba(0,200,240,0.4);
+        ">${count}</div>`,
+        className:'custom-cluster', iconSize:[size,size], iconAnchor:[size/2,size/2]
+      });
+    }
+  });
+  clusterGroup.addTo(map);
+
+  // Separate non-clustered groups for planes and ships (they move)
+  planeGroup = L.layerGroup().addTo(map);
+  shipGroup  = L.layerGroup().addTo(map);
+
+  map.on('mousemove touchmove', e => {
+    document.getElementById('coords').textContent = `LAT ${e.latlng.lat.toFixed(3)} · LON ${e.latlng.lng.toFixed(3)}`;
+  });
+
+  // Close search on map click
+  map.on('click', () => {
+    document.getElementById('searchResults').style.display = 'none';
+  });
+}
+
+function setLayer(name) {
+  if (currentLayer) map.removeLayer(currentLayer);
+  currentLayer = L.tileLayer(LAYERS[name], { maxZoom:19, subdomains:'abcd' });
+  currentLayer.addTo(map);
+  document.querySelectorAll('.lt-btn').forEach(b => b.classList.remove('on'));
+  const btn = document.getElementById('btn-'+name);
+  if (btn) btn.classList.add('on');
+}
+
+// ── MARKERS ───────────────────────────────────────────────────
+function makeMarker(ev) {
+  // Validate coordinates
+  if (!ev.lat || !ev.lon || isNaN(ev.lat) || isNaN(ev.lon)) return null;
+  if (Math.abs(ev.lat) > 90 || Math.abs(ev.lon) > 180) return null;
+  
+  // Check 24h expiry (only for non-live events)
+  if (ev.expires && !ev.isLive) {
+    const expiryTime = new Date(ev.expires).getTime();
+    if (Date.now() > expiryTime + 24*3600000) return null;
+  }
+
+  const cat = getCat(ev.type);
+  const isImportant = ev.important === true;
+  
+  const borderCol = isImportant ? '#ffd700' : cat.col;
+  const glowCol   = isImportant ? '#ffd70088' : cat.col + '55';
+  const size       = isImportant ? 36 : 30;
+  const pulseAnim  = isImportant ? 'animation:goldPulse 1.8s infinite;' : '';
+  const starBadge  = isImportant ? '<div style="position:absolute;top:-6px;right:-6px;font-size:10px">⭐</div>' : '';
+
+  const icon = L.divIcon({
+    className:'custom-marker',
+    html:`<div style="
+      position:relative;
+      width:${size}px;height:${size}px;border-radius:50%;
+      background:${isImportant ? 'rgba(30,20,0,0.95)' : 'rgba(4,8,13,0.85)'};
+      border:${isImportant ? '2.5px' : '2px'} solid ${borderCol};
+      box-shadow:0 0 ${isImportant?'16px':'10px'} ${glowCol};
+      display:flex;align-items:center;justify-content:center;
+      font-size:${isImportant?'16':'14'}px;cursor:pointer;
+      ${pulseAnim}
+    ">${cat.ic}${starBadge}</div>`,
+    iconSize:[size,size], iconAnchor:[size/2,size/2]
+  });
+
+  const confClass = ev.confidence==='confirmed'?'b-ok':ev.confidence==='unconfirmed'?'b-maybe':'b-unk';
+  const confLabel = ev.confidence==='confirmed'?t('confirmed'):ev.confidence==='unconfirmed'?t('unconfirmed'):t('rumor');
+  const timeStr = ev.time ? (ev.time.includes('T') ? new Date(ev.time).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+' UTC' : ev.time) : '—';
+
+  const m = L.marker([ev.lat,ev.lon],{icon})
+    .bindPopup(`
+      <div class="pop-title" style="${isImportant?'color:#ffd700':''}">${isImportant?'⭐ ':''} ${cat.ic} ${ev.title}</div>
+      <div class="pop-row">📍 ${ev.location}</div>
+      <div class="pop-row">🕐 ${timeStr}</div>
+      ${isImportant && ev.importance ? `<div class="pop-row" style="color:#ffd700;font-size:10px;margin-top:4px;line-height:1.4">${ev.importance}</div>` : ''}
+      <div class="pop-badge"><span class="badge ${confClass}">${confLabel}</span></div>
+    `)
+    .on('click', () => showDetail(ev));
+
+  return { marker:m, ev };
+}
+
+function updateVisibility() {
+  clusterGroup.clearLayers();
+  markers.forEach(({marker,ev}) => { if(marker && activeFilters.has(ev.type)) clusterGroup.addLayer(marker); });
+  planeGroup.clearLayers();
+  planeM.forEach(({marker}) => { if(activeFilters.has('plane')) planeGroup.addLayer(marker); });
+  shipGroup.clearLayers();
+  shipM.forEach(({marker}) => { if(activeFilters.has('ship')) shipGroup.addLayer(marker); });
+}
+
+// ── DETAIL ────────────────────────────────────────────────────
+function showDetail(ev) {
+  const cat = getCat(ev.type);
+  document.getElementById('dEmpty').style.display='none';
+  const dc = document.getElementById('detailContent');
+  dc.style.display='block';
+  document.getElementById('dTitle').textContent = `${cat.ic} ${ev.title}`;
+
+  const rows = [[t('type'),cat.label[lang]],[t('loc'),ev.location],[t('time'),ev.time],[t('src'),ev.source]];
+  if (ev.lat) rows.push([t('coords'),`${ev.lat.toFixed(2)}, ${ev.lon.toFixed(2)}`]);
+
+  document.getElementById('dRows').innerHTML = rows.map(([k,v])=>
+    `<div class="d-row"><span class="d-k">${k}</span><span class="d-v">${v}</span></div>`
+  ).join('');
+
+  document.getElementById('dDesc').textContent = ev.description || '';
+
+  const disc = document.getElementById('dDisc');
+  if (ev.confidence==='confirmed') { disc.style.display='none'; }
+  else { disc.style.display='block'; disc.textContent = ev.confidence==='unconfirmed'?t('disc_u'):t('disc_r'); }
+
+  const src = document.getElementById('dSrc');
+  if (ev.url) { src.href=ev.url; src.textContent=`→ ${t('src')}: ${ev.source}`; src.style.display='inline-block'; }
+  else { src.style.display='none'; }
+
+  // On mobile, open detail drawer
+  if (window.innerWidth <= 768) mobileTab('detail');
+}
+
+// ── FEED ──────────────────────────────────────────────────────
+function renderFeed(container) {
+  const feed = container || document.getElementById('feed');
+  if (!feed) return;
+  const filtered = events.filter(e => activeFilters.has(e.type));
+  feed.innerHTML = '';
+  if (!filtered.length) {
+    feed.innerHTML='<div style="padding:16px;color:var(--text-dim);font-family:var(--mono);font-size:10px;">NO EVENTS</div>';
+    return;
+  }
+  filtered.slice(0,60).forEach(ev => {
+    const cat = getCat(ev.type);
+    const cc = ev.confidence==='confirmed'?'b-ok':ev.confidence==='unconfirmed'?'b-maybe':'b-unk';
+    const cl = ev.confidence==='confirmed'?t('confirmed').slice(0,4):ev.confidence==='unconfirmed'?t('unconfirmed').slice(0,4):t('rumor').slice(0,3);
+    const el = document.createElement('div');
+    el.className='ei';
+    el.innerHTML=`
+      <div class="ei-top">
+        <span class="ei-icon">${cat.ic}</span>
+        <span class="ei-title">${ev.title}</span>
+        ${ev.isLive ? '<span class="live-source">● LIVE</span>' : `<span class="badge ${cc}">${cl}</span>`}
+      </div>
+      <div class="ei-bot">
+        <span class="ei-loc">📍 ${ev.location}</span>
+        <span class="ei-time">${ev.time}</span>
+      </div>`;
+    el.onclick = () => { map.setView([ev.lat,ev.lon],6,{animate:true}); showDetail(ev); if(window.innerWidth<=768) mobileTab('map'); };
+    feed.appendChild(el);
+  });
+}
+
+// ── DEMO EVENTS (extensive) ───────────────────────────────────
+function getDemoEvents() {
+  const now = Date.now();
+  const h = (hrs) => new Date(now - hrs*3600000).toISOString();
+  return [
+    // ── CONFLICTS ─────────────────────────────────────────
+    { id:1,  title:'Heavy artillery exchange on eastern front line',
+      type:'conflict', lat:48.5, lon:37.5, location:'Donetsk, Ukraine',
+      time:h(2), expires:h(-22), confidence:'confirmed', source:'Reuters', url:'https://reuters.com',
+      description:'Sustained artillery fire reported along a 40km front. Multiple civilian areas affected. Artillery units from both sides active since dawn.',
+      important:true, importance:'⚠️ Active war zone. Energy infrastructure at risk. GOLD and OIL historically spike during escalation near Russian borders.',
+      marketImpact:['GOLD','OIL','EUR'] },
+
+    { id:2,  title:'Airstrikes on military infrastructure reported',
+      type:'conflict', lat:32.5, lon:44.4, location:'Baghdad Governorate, Iraq',
+      time:h(5), expires:h(-19), confidence:'confirmed', source:'AP', url:'https://apnews.com',
+      description:'Coalition forces confirm targeted strikes on suspected militant infrastructure. Iraqi parliament demands explanation.',
+      important:false, marketImpact:['OIL'] },
+
+    { id:3,  title:'RSF and SAF clash in capital — civilians trapped',
+      type:'conflict', lat:15.5, lon:32.5, location:'Khartoum, Sudan',
+      time:h(8), expires:h(-16), confidence:'confirmed', source:'UN OCHA', url:'https://unocha.org',
+      description:'Fighting between SAF and RSF continues. UN estimates 300,000 new displaced this week. Humanitarian corridors blocked.',
+      important:false, marketImpact:[] },
+
+    { id:4,  title:'Houthi forces claim Red Sea vessel attack',
+      type:'attack', lat:14.5, lon:43.5, location:'Red Sea, Yemen',
+      time:h(1), expires:h(-23), confidence:'confirmed', source:'Reuters', url:'https://reuters.com',
+      description:'Anti-ship missile targeted a commercial tanker in the southern Red Sea. Crew evacuated. Ship adrift.',
+      important:true, importance:'🚢 Red Sea shipping lane disruption. Affects 12% of global trade. OIL prices rise when Suez route is threatened.',
+      marketImpact:['OIL','SPX','NDX'] },
+
+    { id:5,  title:'Naval standoff escalates in disputed island chain',
+      type:'conflict', lat:12.0, lon:114.0, location:'South China Sea',
+      time:h(3), expires:h(-21), confidence:'confirmed', source:'Reuters', url:'https://reuters.com',
+      description:'Philippine Coast Guard vessel shadowed by Chinese warship. Manila files diplomatic protest. USS carrier group repositions.',
+      important:true, importance:'⚡ South China Sea conflict affects global semiconductor supply chains. Major tech manufacturing hub threatened. NASDAQ sensitive.',
+      marketImpact:['NDX','SPX'] },
+
+    { id:6,  title:'Drone strikes target Aramco export facility',
+      type:'attack', lat:26.3, lon:50.1, location:'Eastern Province, Saudi Arabia',
+      time:h(0.5), expires:h(-23.5), confidence:'unconfirmed', source:'Al Arabiya', url:'',
+      description:'Unconfirmed reports of drone strikes near Abqaiq oil processing facility. Saudi Aramco not commenting. Satellite monitoring ongoing.',
+      important:true, importance:'🛢️ CRITICAL — Abqaiq processes ~7% of global oil supply. Any confirmed strike could send OIL up 10-15% in hours. Watch closely.',
+      marketImpact:['OIL','GOLD','SPX'] },
+
+    // ── ATTACKS ───────────────────────────────────────────
+    { id:7,  title:'Car bomb detonates near government district',
+      type:'attack', lat:33.3, lon:44.4, location:'Baghdad, Iraq',
+      time:h(6), expires:h(-18), confidence:'confirmed', source:'Reuters', url:'https://reuters.com',
+      description:'IED detonated in commercial district. Multiple casualties confirmed by local hospitals. Security forces deployed.',
+      important:false, marketImpact:['OIL'] },
+
+    { id:8,  title:'IED strikes military convoy on highway',
+      type:'attack', lat:34.5, lon:69.2, location:'Kabul, Afghanistan',
+      time:h(10), expires:h(-14), confidence:'confirmed', source:'Tolo News', url:'',
+      description:'Roadside bomb struck supply convoy on ring road. Taliban authorities confirm incident and claim no civilian casualties.',
+      important:false, marketImpact:[] },
+
+    { id:9,  title:'Terror attack thwarted at major airport',
+      type:'attack', lat:48.9, lon:2.5, location:'Paris, France',
+      time:h(4), expires:h(-20), confidence:'confirmed', source:'Le Monde', url:'',
+      description:'French DGSI arrested suspects with explosives near CDG airport. Authorities raise terror alert to highest level.',
+      important:true, importance:'✈️ Airport security incidents affect airline stocks and travel sentiment across Europe. EUR/USD may react.',
+      marketImpact:['EUR','SPX'] },
+
+    // ── EARTHQUAKES ───────────────────────────────────────
+    { id:10, title:'M6.8 earthquake — tsunami warning issued then cancelled',
+      type:'quake', lat:37.8, lon:142.3, location:'Honshu coast, Japan',
+      time:h(3), expires:h(-21), confidence:'confirmed', source:'USGS', url:'https://earthquake.usgs.gov',
+      description:'Magnitude 6.8 at 35km depth. Tsunami warning briefly issued then cancelled. Damage reported in coastal towns.',
+      important:true, importance:'🌊 Japanese earthquakes near industrial zones affect global supply chains. Nikkei and tech supply lines sensitive.',
+      marketImpact:['NDX','SPX'] },
+
+    { id:11, title:'M5.9 aftershock follows major quake',
+      type:'quake', lat:38.1, lon:38.4, location:'Kahramanmaraş, Turkey',
+      time:h(7), expires:h(-17), confidence:'confirmed', source:'AFAD', url:'',
+      description:'Strong aftershock felt across earthquake-affected region. Buildings already weakened. No new casualties reported.',
+      important:false, marketImpact:[] },
+
+    { id:12, title:'M6.2 earthquake hits Hindu Kush region',
+      type:'quake', lat:36.2, lon:71.5, location:'Hindu Kush, Afghanistan',
+      time:h(12), expires:h(-12), confidence:'confirmed', source:'EMSC', url:'',
+      description:'Strong earthquake felt across wide area. Remote location hampers damage assessment. Relief teams mobilized.',
+      important:false, marketImpact:[] },
+
+    // ── FLOODS ───────────────────────────────────────────
+    { id:13, title:'Catastrophic monsoon floods — 200,000 displaced',
+      type:'flood', lat:23.8, lon:90.4, location:'Sylhet Division, Bangladesh',
+      time:h(4), expires:h(-20), confidence:'confirmed', source:'BDRCS', url:'',
+      description:'Unprecedented monsoon flooding submerging entire districts. Government declares national emergency. International aid requested.',
+      important:false, marketImpact:[] },
+
+    { id:14, title:'Flash floods destroy multiple villages',
+      type:'flood', lat:31.5, lon:74.3, location:'Punjab, Pakistan',
+      time:h(9), expires:h(-15), confidence:'confirmed', source:'NDMA', url:'',
+      description:'Sudden flash floods triggered by heavy rainfall swept through communities. Dozens missing. Army deployed for rescue.',
+      important:false, marketImpact:[] },
+
+    // ── HURRICANES ────────────────────────────────────────
+    { id:15, title:'Category 4 hurricane — mandatory evacuation ordered',
+      type:'hurricane', lat:18.0, lon:-72.0, location:'Caribbean Sea / Haiti',
+      time:h(1), expires:h(-23), confidence:'confirmed', source:'NHC', url:'https://nhc.noaa.gov',
+      description:'Major hurricane with 250km/h sustained winds. Tracking toward Hispaniola. Mandatory evacuation for 2 million people.',
+      important:false, marketImpact:['OIL'] },
+
+    { id:16, title:'Super typhoon makes landfall — Philippines',
+      type:'hurricane', lat:16.0, lon:120.0, location:'Luzon, Philippines',
+      time:h(6), expires:h(-18), confidence:'confirmed', source:'PAGASA', url:'',
+      description:'Super typhoon made landfall causing widespread destruction. Power infrastructure down across multiple provinces.',
+      important:false, marketImpact:[] },
+
+    { id:17, title:'Tornado outbreak — multiple confirmed touchdowns',
+      type:'hurricane', lat:36.0, lon:-97.0, location:'Oklahoma, USA',
+      time:h(2), expires:h(-22), confidence:'confirmed', source:'NWS', url:'https://weather.gov',
+      description:'Large tornado outbreak. 12 tornadoes confirmed. Energy infrastructure in Tornado Alley at risk.',
+      important:false, marketImpact:['OIL'] },
+
+    // ── WILDFIRES ─────────────────────────────────────────
+    { id:18, title:'Wildfire emergency — 20,000 hectares — evacuations',
+      type:'fire', lat:37.5, lon:-119.5, location:'Sierra Nevada, California, USA',
+      time:h(3), expires:h(-21), confidence:'confirmed', source:'Cal Fire', url:'https://fire.ca.gov',
+      description:'Fast-moving wildfire driven by strong winds and low humidity. 15 communities under mandatory evacuation.',
+      important:false, marketImpact:[] },
+
+    { id:19, title:'Amazon fires spike — satellite shows 400% increase',
+      type:'fire', lat:-3.0, lon:-60.0, location:'Amazonas State, Brazil',
+      time:h(8), expires:h(-16), confidence:'confirmed', source:'INPE', url:'',
+      description:'Satellite data shows dramatic increase in active fires. Political pressure on Brazilian government mounting.',
+      important:false, marketImpact:[] },
+
+    // ── PROTESTS ──────────────────────────────────────────
+    { id:20, title:'Mass anti-austerity strike — capital paralysed',
+      type:'protest', lat:-34.6, lon:-58.4, location:'Buenos Aires, Argentina',
+      time:h(5), expires:h(-19), confidence:'confirmed', source:'Clarín', url:'',
+      description:'Hundreds of thousands march. General strike halts transport and industry. Government refuses dialogue.',
+      important:false, marketImpact:['EUR'] },
+
+    { id:21, title:'Youth protests escalate — parliament suspended',
+      type:'protest', lat:-1.3, lon:36.8, location:'Nairobi, Kenya',
+      time:h(7), expires:h(-17), confidence:'confirmed', source:'Nation', url:'',
+      description:'Youth-led protests turned violent. Police deployed with tear gas. Parliament temporarily suspended sessions.',
+      important:false, marketImpact:[] },
+
+    // ── HEALTH ────────────────────────────────────────────
+    { id:22, title:'WHO declares mpox health emergency — new clade',
+      type:'health', lat:-1.0, lon:29.0, location:'DRC, Eastern Province',
+      time:h(12), expires:h(-12), confidence:'confirmed', source:'WHO', url:'https://who.int',
+      description:'New mpox clade showing increased transmissibility detected. WHO PHEIC declared. Travel advisories issued.',
+      important:true, importance:'🦠 WHO health emergencies historically trigger broad market selloffs. COVID-19 precedent: -30% on equities.',
+      marketImpact:['SPX','NDX','EUR'] },
+
+    { id:23, title:'Cholera outbreak declared in flood-affected zones',
+      type:'health', lat:15.0, lon:30.0, location:'Khartoum State, Sudan',
+      time:h(16), expires:h(-8), confidence:'confirmed', source:'WHO', url:'https://who.int',
+      description:'WHO confirms cholera outbreak linked to flooding and contaminated water. Vaccination campaign launched.',
+      important:false, marketImpact:[] },
+
+    // ── NUCLEAR ───────────────────────────────────────────
+    { id:24, title:'IAEA: Zaporizhzhia plant loses external power again',
+      type:'nuclear', lat:47.5, lon:33.0, location:'Zaporizhzhia NPP, Ukraine',
+      time:h(1), expires:h(-23), confidence:'confirmed', source:'IAEA', url:'https://iaea.org',
+      description:'IAEA monitoring team reports loss of external power supply. Emergency generators activated. Safety protocols in effect. Sixth such incident.',
+      important:true, importance:'☢️ Nuclear plant incidents near conflict zones cause immediate GOLD surge and EUR/USD drops as safety fears spike.',
+      marketImpact:['GOLD','EUR','OIL'] },
+
+    // ── CYBER ─────────────────────────────────────────────
+    { id:25, title:'Critical infrastructure cyberattack — banking systems down',
+      type:'cyber', lat:59.4, lon:24.7, location:'Tallinn, Estonia',
+      time:h(3), expires:h(-21), confidence:'confirmed', source:'CERT-EE', url:'',
+      description:'Coordinated DDoS attack targeted banking and government systems. Attribution points to state actor. NATO article 5 discussions begin.',
+      important:true, importance:'💻 State-level cyberattacks on NATO members trigger defense stock rallies and broad market uncertainty.',
+      marketImpact:['NDX','SPX','BTC'] },
+
+    { id:26, title:'NHS ransomware attack disrupts hospital network',
+      type:'cyber', lat:51.5, lon:-0.1, location:'London, United Kingdom',
+      time:h(8), expires:h(-16), confidence:'confirmed', source:'NCSC', url:'',
+      description:'Major NHS trust systems encrypted. Patient care transferred to neighbouring facilities. NCSC leading response.',
+      important:false, marketImpact:['NDX'] },
+
+    // ── ACCIDENTS ─────────────────────────────────────────
+    { id:27, title:'Bridge collapse blocks major trade route',
+      type:'accident', lat:22.3, lon:114.2, location:'Guangdong, China',
+      time:h(6), expires:h(-18), confidence:'confirmed', source:'Xinhua', url:'',
+      description:'Highway bridge section collapsed during heavy rain. Major trade route between manufacturing hubs disrupted.',
+      important:true, importance:'🏗️ Trade route disruption in Pearl River Delta affects global manufacturing supply chains. NASDAQ tech names sensitive.',
+      marketImpact:['NDX','SPX'] },
+
+    { id:28, title:'Ferry disaster — 50+ missing in Lagos Lagoon',
+      type:'accident', lat:6.3, lon:3.4, location:'Lagos, Nigeria',
+      time:h(10), expires:h(-14), confidence:'confirmed', source:'NEMA', url:'',
+      description:'Overloaded passenger ferry capsized. Coast Guard and volunteers conducting search and rescue.',
+      important:false, marketImpact:[] },
+  ];
+}
+
+// ── DEMO AIRCRAFT ─────────────────────────────────────────────
+// Aircraft types: 'C'=commercial, 'M'=military, 'P'=private/cargo
+function getDemoAircraft() {
+  return [
+    // Commercial - Major airlines
+    {cs:'BAW009', lat:51.5,lon:-0.5, hdg:45, alt:11000, spd:900, country:'GB', type:'C', airline:'British Airways'},
+    {cs:'DLH404', lat:50.0,lon:8.5,  hdg:90, alt:10500, spd:850, country:'DE', type:'C', airline:'Lufthansa'},
+    {cs:'AAL100', lat:40.6,lon:-73.8,hdg:270,alt:11500, spd:950, country:'US', type:'C', airline:'American Airlines'},
+    {cs:'UAL887', lat:37.6,lon:-122.4,hdg:180,alt:10000,spd:880, country:'US', type:'C', airline:'United Airlines'},
+    {cs:'AFR006', lat:48.9,lon:2.4,  hdg:135,alt:10800, spd:870, country:'FR', type:'C', airline:'Air France'},
+    {cs:'IBE3127',lat:40.4,lon:-3.7, hdg:300,alt:10200, spd:860, country:'ES', type:'C', airline:'Iberia'},
+    {cs:'TK001',  lat:40.9,lon:28.8, hdg:250,alt:10900, spd:840, country:'TR', type:'C', airline:'Turkish Airlines'},
+    {cs:'EK201',  lat:25.2,lon:55.4, hdg:320,alt:12000, spd:920, country:'AE', type:'C', airline:'Emirates'},
+    {cs:'SQ021',  lat:1.3, lon:103.9,hdg:60, alt:11200, spd:900, country:'SG', type:'C', airline:'Singapore Airlines'},
+    {cs:'QF001',  lat:-33.9,lon:151.2,hdg:40,alt:11800, spd:940, country:'AU', type:'C', airline:'Qantas'},
+    {cs:'JL004',  lat:35.8,lon:140.4,hdg:210,alt:10600, spd:850, country:'JP', type:'C', airline:'Japan Airlines'},
+    {cs:'CX251',  lat:22.3,lon:114.2,hdg:180,alt:11400, spd:910, country:'HK', type:'C', airline:'Cathay Pacific'},
+    {cs:'KL641',  lat:52.3,lon:4.8,  hdg:80, alt:10300, spd:855, country:'NL', type:'C', airline:'KLM'},
+    {cs:'EY025',  lat:24.4,lon:54.6, hdg:45, alt:12100, spd:930, country:'AE', type:'C', airline:'Etihad'},
+    {cs:'RYR551', lat:53.4,lon:-6.2, hdg:200,alt:9800,  spd:820, country:'IE', type:'C', airline:'Ryanair'},
+    {cs:'VY1234', lat:41.3,lon:2.1,  hdg:270,alt:9600,  spd:810, country:'ES', type:'C', airline:'Vueling'},
+    {cs:'LH2345', lat:48.2,lon:11.8, hdg:90, alt:10800, spd:860, country:'DE', type:'C', airline:'Lufthansa'},
+    {cs:'BA456',  lat:51.2,lon:0.2,  hdg:180,alt:10100, spd:840, country:'GB', type:'C', airline:'British Airways'},
+    {cs:'AA789',  lat:33.9,lon:-118.4,hdg:90,alt:11000, spd:890, country:'US', type:'C', airline:'American Airlines'},
+    {cs:'UA321',  lat:41.9,lon:-87.9,hdg:270,alt:10500, spd:870, country:'US', type:'C', airline:'United'},
+    {cs:'DL456',  lat:33.6,lon:-84.4,hdg:45, alt:10200, spd:850, country:'US', type:'C', airline:'Delta'},
+    {cs:'WN789',  lat:29.9,lon:-95.3,hdg:315,alt:9500,  spd:800, country:'US', type:'C', airline:'Southwest'},
+    {cs:'CA981',  lat:39.9,lon:116.6,hdg:180,alt:11000, spd:870, country:'CN', type:'C', airline:'Air China'},
+    {cs:'MU123',  lat:31.1,lon:121.8,hdg:90, alt:10700, spd:855, country:'CN', type:'C', airline:'China Eastern'},
+    {cs:'CZ456',  lat:23.1,lon:113.3,hdg:270,alt:10900, spd:865, country:'CN', type:'C', airline:'China Southern'},
+    // Military
+    {cs:'RCH001', lat:51.8,lon:-1.8,  hdg:180,alt:9000, spd:750, country:'US', type:'M', airline:'USAF C-17'},
+    {cs:'ASCOT1', lat:51.9,lon:-1.5,  hdg:90, alt:8500, spd:680, country:'GB', type:'M', airline:'RAF Voyager'},
+    {cs:'CTM001', lat:40.4,lon:-3.6,  hdg:270,alt:7000, spd:600, country:'ES', type:'M', airline:'Spanish AF'},
+    {cs:'FAF001', lat:48.7,lon:2.2,   hdg:45, alt:8000, spd:700, country:'FR', type:'M', airline:'French AF A400M'},
+    {cs:'GAF001', lat:52.4,lon:13.5,  hdg:270,alt:8500, spd:720, country:'DE', type:'M', airline:'Luftwaffe'},
+    {cs:'RFF001', lat:55.8,lon:37.3,  hdg:180,alt:10000,spd:900, country:'RU', type:'M', airline:'Russian AF'},
+    {cs:'CCP001', lat:39.5,lon:116.0, hdg:90, alt:9500, spd:850, country:'CN', type:'M', airline:'PLAAF'},
+    // Cargo
+    {cs:'FDX100', lat:35.0,lon:-89.9, hdg:270,alt:10500,spd:880, country:'US', type:'P', airline:'FedEx'},
+    {cs:'UPS200', lat:38.2,lon:-85.7, hdg:90, alt:10200,spd:860, country:'US', type:'P', airline:'UPS'},
+    {cs:'DHL300', lat:50.9,lon:7.1,   hdg:180,alt:9800, spd:840, country:'DE', type:'P', airline:'DHL'},
+    {cs:'MAS012', lat:2.7, lon:101.7, hdg:270,alt:10700,spd:850, country:'MY', type:'C', airline:'Malaysia Airlines'},
+    {cs:'SWR013', lat:47.5,lon:8.5,   hdg:150,alt:11100,spd:900, country:'CH', type:'C', airline:'Swiss'},
+  ];
+}
+
+// ── DEMO SHIPS ────────────────────────────────────────────────
+// Ship categories: 'C'=commercial, 'M'=military/naval, 'T'=tanker, 'F'=fishing
+function getDemoShips() {
+  return [
+    // Commercial container ships - major routes
+    {mmsi:'211345670',name:'MSC OSCAR',       lat:36.0, lon:12.0,   flag:'🇵🇦',cat:'C',type:'Container', dest:'Barcelona',  spd:22},
+    {mmsi:'477123456',name:'COSCO UNIVERSE',  lat:1.2,  lon:103.8,  flag:'🇨🇳',cat:'C',type:'Container', dest:'Rotterdam',  spd:24},
+    {mmsi:'353456789',name:'EVER GIVEN',      lat:30.0, lon:32.5,   flag:'🇵🇦',cat:'C',type:'Container', dest:'Hamburg',    spd:20},
+    {mmsi:'636015801',name:'MAERSK ESSEX',    lat:11.0, lon:45.0,   flag:'🇩🇰',cat:'C',type:'Container', dest:'Jeddah',     spd:21},
+    {mmsi:'563012345',name:'PACIFIC VOYAGER', lat:-8.0, lon:-140.0, flag:'🇸🇬',cat:'C',type:'Container', dest:'Panama',     spd:23},
+    {mmsi:'374123456',name:'YANGTZE GLORY',   lat:25.0, lon:120.0,  flag:'🇨🇳',cat:'C',type:'Bulk',      dest:'Shanghai',   spd:18},
+    {mmsi:'441123456',name:'KORYO SHIPPING',  lat:37.5, lon:126.5,  flag:'🇰🇷',cat:'C',type:'Container', dest:'Busan',      spd:22},
+    {mmsi:'416123456',name:'FORMOSA QUEEN',   lat:24.0, lon:121.5,  flag:'🇹🇼',cat:'C',type:'Container', dest:'Taipei',     spd:20},
+    {mmsi:'215123456',name:'ADRIATIC PEARL',  lat:43.0, lon:13.0,   flag:'🇲🇹',cat:'C',type:'Ro-Ro',     dest:'Ancona',     spd:19},
+    // Tankers - strategic routes
+    {mmsi:'249012345',name:'NORDIC CROWN',    lat:58.0, lon:3.0,    flag:'🇳🇴',cat:'T',type:'Oil Tanker',dest:'Aberdeen',   spd:15},
+    {mmsi:'275123456',name:'BALTIC CARRIER',  lat:56.0, lon:18.0,   flag:'🇱🇻',cat:'T',type:'Oil Tanker',dest:'Riga',       spd:14},
+    {mmsi:'319083400',name:'ATLANTIC STAR',   lat:35.0, lon:-40.0,  flag:'🇬🇧',cat:'T',type:'LNG Tanker',dest:'Norfolk',    spd:18},
+    {mmsi:'999000001',name:'HORMUZ SPIRIT',   lat:26.5, lon:56.3,   flag:'🇮🇷',cat:'T',type:'Oil Tanker',dest:'Strait of Hormuz', spd:12},
+    {mmsi:'999000002',name:'GULF PIONEER',    lat:29.0, lon:48.5,   flag:'🇰🇼',cat:'T',type:'VLCC',      dest:'Kuwait',     spd:13},
+    // Military / Naval vessels
+    {mmsi:'MIL-001',  name:'USS GERALD FORD', lat:36.5, lon:25.0,   flag:'🇺🇸',cat:'M',type:'Aircraft Carrier',dest:'Mediterranean patrol', spd:28},
+    {mmsi:'MIL-002',  name:'HMS QUEEN ELIZABETH',lat:50.5,lon:-1.2, flag:'🇬🇧',cat:'M',type:'Aircraft Carrier',dest:'North Atlantic',       spd:25},
+    {mmsi:'MIL-003',  name:'KUZNETSOV',        lat:69.0, lon:33.0,  flag:'🇷🇺',cat:'M',type:'Carrier',   dest:'Murmansk',   spd:18},
+    {mmsi:'MIL-004',  name:'PLA SHANDONG',     lat:18.0, lon:112.0, flag:'🇨🇳',cat:'M',type:'Carrier',   dest:'South China Sea', spd:26},
+    {mmsi:'MIL-005',  name:'USS ARLEIGH BURKE',lat:34.0, lon:33.0,  flag:'🇺🇸',cat:'M',type:'Destroyer', dest:'Eastern Med patrol', spd:30},
+    {mmsi:'MIL-006',  name:'FS FORBIN',        lat:43.5, lon:6.0,   flag:'🇫🇷',cat:'M',type:'Frigate',   dest:'Toulon',     spd:25},
+    // Other
+    {mmsi:'230123456',name:'VIKING GRACE',    lat:60.0, lon:20.0,   flag:'🇫🇮',cat:'C',type:'Ferry',     dest:'Stockholm',  spd:22},
+    {mmsi:'255123456',name:'MSC BELLISSIMA',  lat:32.6, lon:-16.9,  flag:'🇮🇹',cat:'C',type:'Cruise',    dest:'Madeira',    spd:20},
+    {mmsi:'311123456',name:'RRS DISCOVERY',   lat:-54.0,lon:-36.0,  flag:'🇬🇧',cat:'C',type:'Research',  dest:'Falklands',  spd:12},
+  ];
+}
+
+// ── FETCH WITH TIMEOUT ────────────────────────────────────────
+async function fetchT(url, ms=7000) {
+  const c = new AbortController();
+  const id = setTimeout(() => c.abort(), ms);
+  try { const r = await fetch(url,{signal:c.signal}); clearTimeout(id); return r; }
+  catch(e) { clearTimeout(id); throw e; }
+}
+
+// ── GDELT ─────────────────────────────────────────────────────
+async function fetchGDELT() {
+  const themes = [
+    {q:'ATTACK_BOMB OR TERROR OR EXPLOSION',            type:'attack'},
+    {q:'MILITARY_ATTACK OR WAR_KINETIC OR CEASEFIRE',   type:'conflict'},
+    {q:'NATURAL_DISASTER_EARTHQUAKE OR SEISMIC',        type:'quake'},
+    {q:'NATURAL_DISASTER_FLOOD OR FLOODING',            type:'flood'},
+    {q:'NATURAL_DISASTER_HURRICANE OR TYPHOON cyclone', type:'hurricane'},
+    {q:'NATURAL_DISASTER_WILDFIRE evacuation emergency',  type:'fire'},
+    {q:'PROTEST OR DEMONSTRATION OR RIOT strike',       type:'protest'},
+    {q:'DISEASE_OUTBREAK OR EPIDEMIC health emergency', type:'health'},
+  ];
+  const out = []; let worked = false;
+  for (const th of themes) {
+    try {
+      const maxRows = ['fire','flood','accident'].includes(th.type) ? 8 : 15;
+      const url = `https://api.gdeltproject.org/api/v2/geo/geo?query=${encodeURIComponent(th.q)}&mode=pointdata&maxrows=${maxRows}&format=geojson&TIMESPAN=1440`;
+      const r = await fetchT(url,6000);
+      const d = await r.json();
+      if (d.features?.length) {
+        worked = true;
+        d.features.forEach(f => {
+          const p=f.properties, c=f.geometry.coordinates;
+          if (!c||c.length<2) return;
+          const srcs=(p.Domains||'').split(';').filter(Boolean);
+          // Build a meaningful title from available GDELT fields
+          const loc = p.ActionGeo_FullName || p.Actor1Geo_FullName || p.Actor2Geo_FullName || '';
+          const a1 = p.Actor1Name || '';
+          const a2 = p.Actor2Name || '';
+          const locShort = loc.split(',').slice(-2).join(',').trim();
+          
+          // Generate title based on event type and available data
+          const typeLabels = {
+            attack:'Attack reported', conflict:'Armed conflict', quake:'Seismic activity',
+            flood:'Flooding reported', hurricane:'Severe storm', fire:'Wildfire activity',
+            protest:'Civil unrest'
+          };
+          let title = typeLabels[th.type] || th.type;
+          if (locShort) title += ' in ' + locShort;
+          else if (a1) title += ' — ' + a1.toLowerCase().replace(/\w/g,c=>c.toUpperCase());
+          
+          // Build description
+          let desc = '';
+          if (a1 && a2) desc = `Reported actors: ${a1} and ${a2}.`;
+          else if (a1) desc = `Reported actor: ${a1}.`;
+          if (loc) desc += (desc?' ':'') + `Location: ${loc}.`;
+          desc += ' Source: GDELT Global Event Database.';
+
+          // Skip low-quality events: no location, single source on fire/flood types
+          if (!loc && !a1) return;
+          if (srcs.length < 2 && ['fire','flood','accident'].includes(th.type)) return;
+          
+          out.push({
+            id: p.GLOBALEVENTID||Math.random(),
+            title: trunc(title, 70),
+            type: th.type, lat:c[1], lon:c[0],
+            location: loc || locShort || 'Unknown',
+            time: fmtDate(p.SQLDATE),
+            confidence: srcs.length>=3?'confirmed':srcs.length>=2?'unconfirmed':'rumor',
+            source: srcs[0]||'GDELT',
+            url: p.SOURCEURL||'',
+            description: desc
+          });
+        });
+      }
+    } catch(e) { console.warn('GDELT',th.type,e.message); }
+  }
+  // Deduplicate by proximity - larger radius for fire/flood (more local noise)
+  const deduped = [];
+  out.forEach(ev => {
+    const radius = ['fire','flood','accident'].includes(ev.type) ? 2.0 : 0.8;
+    const isDupe = deduped.some(e => 
+      Math.abs(e.lat - ev.lat) < radius && 
+      Math.abs(e.lon - ev.lon) < radius && 
+      e.type === ev.type
+    );
+    if (!isDupe) deduped.push(ev);
+  });
+  
+  // Cap fire events at 5 max globally (avoid spam)
+  const fireCap = 5;
+  let fireCount = 0;
+  const capped = deduped.filter(ev => {
+    if (ev.type === 'fire') { fireCount++; return fireCount <= fireCap; }
+    return true;
+  });
+
+  document.getElementById('updTxt').textContent = worked ? t('live_data') : t('demo');
+  return worked ? capped : null;
+}
+
+function fmtDate(d) {
+  if(!d) return '—';
+  const s=String(d);
+  return s.length>=8?`${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`:s;
+}
+function trunc(s,n) { return s&&s.length>n?s.slice(0,n)+'…':s||'—'; }
+
+// ── OPENSKY ───────────────────────────────────────────────────
+async function fetchAircraft() {
+  try {
+    const r = await fetchT('https://opensky-network.org/api/states/all?lamin=-60&lomin=-180&lamax=80&lomax=180',8000);
+    const d = await r.json();
+    if (d.states?.length) return d.states.slice(0,300);
+  } catch(e) { console.warn('OpenSky unavailable'); }
+  return null;
+}
+
+// ── RENDER AIRCRAFT ───────────────────────────────────────────
+function renderAircraft(states) {
+  planeGroup.clearLayers();
+  planeM = [];
+
+  // Get demo data (always available)
+  const demoData = getDemoAircraft();
+  
+  // Determine what to show based on filters
+  const showCommercial = activeFilters.has('plane');
+  const showMilitary   = activeFilters.has('military');
+  const showCargo      = activeFilters.has('cargo');
+  
+  if (!showCommercial && !showMilitary && !showCargo) {
+    document.getElementById('sPl').textContent = 0;
+    return;
+  }
+
+  // If live OpenSky data available, use it; otherwise use demo
+  if (states && states.length) {
+    // OpenSky format: [icao24, callsign, country, ..., lon, lat, alt, ..., spd, hdg]
+    states.forEach(s => {
+      if (!showCommercial) return; // OpenSky doesn't distinguish military
+      const lat=s[6], lon=s[5];
+      if (!lat||!lon) return;
+      const cs=(s[1]||'').trim()||'N/A';
+      const alt=s[7]?Math.round(s[7])+'m':'—';
+      const spd=s[9]?Math.round(s[9]*3.6)+'km/h':'—';
+      const hdg=s[10]||0;
+      const icon = L.divIcon({ className:'custom-marker',
+        html:`<div style="font-size:13px;transform:rotate(${hdg}deg);filter:drop-shadow(0 0 3px #00c8f0)">✈️</div>`,
+        iconSize:[18,18],iconAnchor:[9,9] });
+      const m = L.marker([lat,lon],{icon}).bindPopup(
+        `<div class="pop-title">✈️ ${cs}</div><div class="pop-row">Alt: ${alt} · Spd: ${spd}</div><div class="pop-row">${s[2]||''}</div>`);
+      planeGroup.addLayer(m);
+      planeM.push({marker:m});
+    });
+  } else {
+    // Demo data with type differentiation
+    demoData.forEach(a => {
+      const isM = a.type === 'M';
+      const isC = a.type === 'P';
+      if (isM && !showMilitary) return;
+      if (isC && !showCargo) return;
+      if (!isM && !isC && !showCommercial) return;
+      
+      const col = isM ? '#ff4444' : isC ? '#cd853f' : '#00c8f0';
+      const ic  = isM ? '🛩' : isC ? '📦' : '✈️';
+      const label = isM ? '🔴 MILITARY' : isC ? '📦 CARGO' : '✈️ COMMERCIAL';
+      
+      const icon = L.divIcon({ className:'custom-marker',
+        html:`<div style="font-size:${isM?'14':'13'}px;transform:rotate(${a.hdg}deg);filter:drop-shadow(0 0 4px ${col})${isM?';animation:pulse 2s infinite':''}">${ic}</div>`,
+        iconSize:[18,18],iconAnchor:[9,9] });
+      const m = L.marker([a.lat,a.lon],{icon}).bindPopup(`
+        <div class="pop-title">${ic} ${a.cs}</div>
+        <div class="pop-row">${label}</div>
+        <div class="pop-row">${a.airline} · ${a.country}</div>
+        <div class="pop-row">Alt: ${a.alt}m · Spd: ${a.spd}km/h · Hdg: ${a.hdg}°</div>
+      `);
+      planeGroup.addLayer(m);
+      planeM.push({marker:m, type:a.type});
+    });
+  }
+  
+  document.getElementById('sPl').textContent = planeM.length;
+}
+
+// ── RENDER SHIPS ──────────────────────────────────────────────
+function renderShips(ships) {
+  shipGroup.clearLayers();
+  shipM = [];
+  
+  const showCommercial = activeFilters.has('ship');
+  const showMilitary   = activeFilters.has('military');
+  if (!showCommercial && !showMilitary) { document.getElementById('sSh').textContent = 0; return; }
+  
+  ships.forEach(sh => {
+    const isM = sh.cat === 'M';
+    const isT = sh.cat === 'T';
+    if (isM && !showMilitary) return;
+    if (!isM && !showCommercial) return;
+    
+    const ic  = isM ? '⚓' : isT ? '🛢️' : '🚢';
+    const col = isM ? '#ff4444' : isT ? '#ff8c00' : '#0066ff';
+    const label = isM ? '🔴 NAVAL' : isT ? '🛢 TANKER' : '🚢 COMMERCIAL';
+
+    const icon = L.divIcon({ className:'custom-marker',
+      html:`<div style="font-size:14px;filter:drop-shadow(0 0 4px ${col})${isM?';animation:pulse 2s infinite':''}">${ic}</div>`,
+      iconSize:[18,18],iconAnchor:[9,9] });
+    const m = L.marker([sh.lat,sh.lon],{icon}).bindPopup(`
+      <div class="pop-title" style="${isM?'color:#ff8888':''}">${ic} ${sh.name}</div>
+      <div class="pop-row">${label} · ${sh.flag}</div>
+      <div class="pop-row">${sh.type}</div>
+      <div class="pop-row">→ ${sh.dest} · ${sh.spd||'—'}kn</div>
+      ${isM ? '<div class="pop-row" style="color:#ff8888;font-size:10px">⚠️ Demo data — real naval positions classified</div>' : ''}
+    `);
+    shipGroup.addLayer(m);
+    shipM.push({marker:m, cat:sh.cat});
+  });
+  document.getElementById('sSh').textContent = shipM.length;
+}
+
+
+// ── USGS REAL-TIME EARTHQUAKES ────────────────────────────────
+// No CORS issues - USGS allows browser requests
+async function fetchUSGS() {
+  try {
+    const url = 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson';
+    const r = await fetchT(url, 8000);
+    const d = await r.json();
+    if (!d.features?.length) return [];
+    return d.features.map(f => {
+      const p = f.properties, c = f.geometry.coordinates;
+      const mag = p.mag?.toFixed(1) || '?';
+      const depth = c[2] ? Math.round(c[2])+'km' : '—';
+      const place = p.place || 'Unknown location';
+      const ts = new Date(p.time).toISOString().slice(0,10);
+      return {
+        id: 'usgs_' + f.id,
+        title: `M${mag} earthquake — ${place}`,
+        type: 'quake',
+        lat: c[1], lon: c[0],
+        location: place,
+        time: ts,
+        confidence: 'confirmed',
+        source: 'USGS',
+        url: p.url || 'https://earthquake.usgs.gov',
+        description: `Magnitude ${mag} earthquake at depth ${depth}. ${p.status === 'reviewed' ? 'Reviewed by USGS seismologist.' : 'Automatic detection.'} ${p.tsunami ? '⚠️ Tsunami alert issued.' : ''}`,
+        isLive: true,
+        mag: parseFloat(p.mag) || 0
+      };
+    });
+  } catch(e) {
+    console.warn('USGS fetch error:', e.message);
+    return [];
+  }
+}
+
+// ── SEARCH (Nominatim - OpenStreetMap, no key needed) ─────────
+let searchTimeout = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+  const input = document.getElementById('searchInput');
+  if (!input) return;
+  input.addEventListener('input', () => {
+    clearTimeout(searchTimeout);
+    const q = input.value.trim();
+    if (q.length < 3) { document.getElementById('searchResults').style.display='none'; return; }
+    searchTimeout = setTimeout(() => searchPlaces(q), 400);
+  });
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') doSearch();
+    if (e.key === 'Escape') { document.getElementById('searchResults').style.display='none'; }
+  });
+});
+
+async function searchPlaces(q) {
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5&addressdetails=0`;
+    const r = await fetchT(url, 5000);
+    const data = await r.json();
+    const res = document.getElementById('searchResults');
+    if (!data.length) { res.style.display='none'; return; }
+    res.innerHTML = data.map(p => `
+      <div class="search-result-item" onclick="flyTo(${p.lat},${p.lon},'${p.display_name.replace(/'/g,"\'")}')">
+        📍 ${p.display_name.slice(0,60)}${p.display_name.length>60?'…':''}
+      </div>`).join('');
+    res.style.display = 'block';
+  } catch(e) {
+    console.warn('Search error:', e.message);
+  }
+}
+
+async function doSearch() {
+  const q = document.getElementById('searchInput').value.trim();
+  if (!q) return;
+  await searchPlaces(q);
+  // If only one result, fly directly
+  const items = document.querySelectorAll('.search-result-item');
+  if (items.length === 1) items[0].click();
+}
+
+function flyTo(lat, lon, name) {
+  map.flyTo([lat, lon], 10, { animate:true, duration:1.2 });
+  document.getElementById('searchInput').value = name.slice(0,40);
+  document.getElementById('searchResults').style.display = 'none';
+  // Add temporary marker
+  const icon = L.divIcon({
+    className:'custom-marker',
+    html:'<div style="font-size:20px;filter:drop-shadow(0 0 6px #00c8f0)">📍</div>',
+    iconSize:[24,24], iconAnchor:[12,24]
+  });
+  const m = L.marker([lat,lon],{icon}).addTo(map).bindPopup(`<div class="pop-title">📍 ${name.slice(0,50)}</div>`).openPopup();
+  setTimeout(() => map.removeLayer(m), 8000);
+}
+
+// ── REFRESH ───────────────────────────────────────────────────
+let nextSec = 300;
+
+async function refresh() {
+  // 1. Load demo events immediately (map never empty)
+  clusterGroup.clearLayers();
+  markers = [];
+  events = getDemoEvents();
+  events.forEach(ev => {
+    const m = makeMarker(ev);
+    if (!m) return;
+    markers.push(m);
+    if(activeFilters.has(ev.type)) clusterGroup.addLayer(m.marker);
+  });
+  updateStats();
+  renderFeed();
+  analyzeEventRelevance();
+
+  // 2. Demo ships immediately
+  renderShips(getDemoShips());
+
+  // 3. USGS real-time earthquakes (no CORS!) - runs in parallel
+  fetchUSGS().then(quakes => {
+    if (!quakes.length) return;
+    // Replace demo quake events with live ones
+    const nonQuake = events.filter(e => e.type !== 'quake');
+    events = [...nonQuake, ...quakes];
+    // Re-render markers
+    clusterGroup.clearLayers();
+    markers = [];
+    events.forEach(ev => {
+      const m = makeMarker(ev);
+      if (!m) return;
+      markers.push(m);
+      if(activeFilters.has(ev.type)) clusterGroup.addLayer(m.marker);
+    });
+    updateStats();
+    renderFeed();
+    analyzeEventRelevance();
+    // Show live badge in updTxt
+    document.getElementById('updTxt').textContent = `USGS LIVE • ${quakes.length} quakes`;
+  }).catch(()=>{});
+
+  // 4. Try GDELT in background
+  fetchGDELT().then(live => {
+    if (live?.length) {
+      // Merge: keep live USGS quakes, replace rest with GDELT
+      const liveQuakes = events.filter(e => e.isLive);
+      clusterGroup.clearLayers();
+      markers = [];
+      events = [...live, ...liveQuakes];
+      events.forEach(ev => {
+        const m = makeMarker(ev);
+        if (!m) return;
+        markers.push(m);
+        if(activeFilters.has(ev.type)) clusterGroup.addLayer(m.marker);
+      });
+      updateStats();
+      renderFeed();
+      analyzeEventRelevance();
+    }
+  }).catch(()=>{});
+
+  // 5. Aircraft
+  fetchAircraft().then(ac => renderAircraft(ac)).catch(() => renderAircraft(null));
+
+  nextSec = 300;
+  startProgress();
+}
+
+function updateStats() {
+  document.getElementById('sEv').textContent = events.length;
+  document.getElementById('sAl').textContent = events.filter(e=>['attack','conflict'].includes(e.type)).length;
+}
+
+let progTimer = null;
+function startProgress() {
+  if (progTimer) clearInterval(progTimer);
+  const fill = document.getElementById('updFill');
+  let pct = 0;
+  fill.style.width = '0%';
+  progTimer = setInterval(() => {
+    pct += 100/300;
+    fill.style.width = Math.min(pct,100) + '%';
+    if (pct >= 100) clearInterval(progTimer);
+  }, 1000);
+}
+
+// ── CLOCK ─────────────────────────────────────────────────────
+function tickClock() {
+  const utc = new Date().toUTCString().split(' ')[4];
+  document.getElementById('clock').textContent = utc + ' UTC';
+  nextSec = Math.max(0, nextSec-1);
+  const m=String(Math.floor(nextSec/60)).padStart(2,'0'), s=String(nextSec%60).padStart(2,'0');
+  document.getElementById('nextUpd').textContent = `${t('next')}: ${m}:${s}`;
+}
+
+// ── MOBILE TABS ───────────────────────────────────────────────
+let mobileDrawerTab = null;
+
+function mobileTab(tab) {
+  document.querySelectorAll('.bntab').forEach(b => b.classList.toggle('on', b.id==='tab-'+tab));
+  const drawer = document.getElementById('drawer');
+  const dc = document.getElementById('drawerContent');
+
+  if (tab === 'map') {
+    drawer.classList.remove('open');
+    mobileDrawerTab = null;
+    return;
+  }
+
+  if (tab === mobileDrawerTab) {
+    drawer.classList.remove('open');
+    mobileDrawerTab = null;
+    document.getElementById('tab-map').classList.add('on');
+    return;
+  }
+
+  mobileDrawerTab = tab;
+  drawer.classList.add('open');
+
+  if (tab === 'events') {
+    dc.innerHTML = `<div class="sec-hdr" style="padding:10px 14px">${t('feed')}</div><div id="mfeed"></div>`;
+    renderFeed(document.getElementById('mfeed'));
+  } else if (tab === 'filters') {
+    dc.innerHTML = `
+      <div class="sec-hdr" style="padding:10px 14px">${t('filters')}</div>
+      <div style="padding:10px 12px">
+        <div class="filter-grid" id="mfilterGrid"></div>
+      </div>
+      <div class="sec-hdr" style="padding:10px 14px">${t('stats')}</div>
+      <div style="padding:10px 12px">
+        <div class="stats-grid">
+          <div class="sc"><div class="sv" id="msPl">—</div><div class="sl">${t('aircraft')}</div></div>
+          <div class="sc"><div class="sv" id="msSh">—</div><div class="sl">${t('vessels')}</div></div>
+          <div class="sc"><div class="sv" id="msEv">—</div><div class="sl">${t('events')}</div></div>
+          <div class="sc"><div class="sv" id="msAl" style="color:var(--red)">—</div><div class="sl">${t('alerts')}</div></div>
+        </div>
+      </div>`;
+    renderFilters(document.getElementById('mfilterGrid'));
+    document.getElementById('msPl').textContent = document.getElementById('sPl').textContent;
+    document.getElementById('msSh').textContent = document.getElementById('sSh').textContent;
+    document.getElementById('msEv').textContent = document.getElementById('sEv').textContent;
+    document.getElementById('msAl').textContent = document.getElementById('sAl').textContent;
+  } else if (tab === 'detail') {
+    dc.innerHTML = `<div class="sec-hdr" style="padding:10px 14px">${t('detail')}</div>`;
+    const clone = document.getElementById('detailBody').cloneNode(true);
+    clone.id = 'mdetailBody';
+    clone.style.maxHeight = '45vh';
+    dc.appendChild(clone);
+  } else if (tab === 'markets') {
+    drawer.classList.add('markets-drawer');
+    renderMobileMarkets(dc);
+  } else {
+    drawer.classList.remove('markets-drawer');
+  }
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// ── MARKETS ENGINE ───────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+
+const ASSETS = [
+  { id:'BTC',  name:'BITCOIN',     sym:'BTC-USD',  icon:'₿', color:'#f7931a', decimals:0 },
+  { id:'SPX',  name:'S&P 500',     sym:'SPY',      icon:'📊', color:'#00c8f0', decimals:2 },
+  { id:'GOLD', name:'GOLD',        sym:'GC=F',     icon:'🥇', color:'#ffc800', decimals:2 },
+  { id:'OIL',  name:'WTI OIL',     sym:'CL=F',     icon:'🛢', color:'#ff6a00', decimals:2 },
+  { id:'EUR',  name:'EUR/USD',     sym:'EURUSD=X', icon:'€', color:'#00e87a', decimals:4 },
+  { id:'NDX',  name:'NASDAQ',      sym:'QQQ',      icon:'💹', color:'#9b40ff', decimals:2 },
+];
+
+let marketData = {};      // { id: { price, change, changePct, history[] } }
+let selectedAsset = null;
+let marketAlerts = [];
+let chartAnimFrame = null;
+
+// ── FETCH PRICES (CoinGecko for BTC, Yahoo Finance proxy for others) ──
+async function fetchMarketData() {
+  const results = await Promise.allSettled([
+    fetchBTC(),
+    fetchYahoo('SPY'),
+    fetchYahoo('GC=F'),
+    fetchYahoo('CL=F'),
+    fetchYahoo('EURUSD=X'),
+    fetchYahoo('QQQ'),
+  ]);
+
+  const ids = ['BTC','SPX','GOLD','OIL','EUR','NDX'];
+  results.forEach((r, i) => {
+    if (r.status === 'fulfilled' && r.value) {
+      marketData[ids[i]] = r.value;
+    } else if (!marketData[ids[i]]) {
+      marketData[ids[i]] = generateDemoMarket(ids[i]);
+    }
+  });
+
+  renderMarketCards();
+  if (selectedAsset) showMarketDetail(selectedAsset);
+  analyzeEventRelevance();
+  detectPriceAlerts();
+}
+
+// Track previous prices for alert detection
+const prevPrices = {};
+
+function detectPriceAlerts() {
+  ASSETS.forEach(asset => {
+    const d = marketData[asset.id];
+    if (!d) return;
+    const prev = prevPrices[asset.id];
+    if (!prev) { prevPrices[asset.id] = d.price; return; }
+    
+    const changePct = ((d.price - prev) / prev) * 100;
+    prevPrices[asset.id] = d.price;
+    
+    // Alert thresholds
+    const threshold = asset.id === 'BTC' ? 3 : asset.id === 'EUR' ? 0.5 : 2;
+    
+    if (Math.abs(changePct) >= threshold) {
+      const dir = changePct > 0 ? '📈' : '📉';
+      const dirWord = changePct > 0 ? 'SURGE' : 'DROP';
+      const col = changePct > 0 ? 'var(--green)' : 'var(--red)';
+      
+      // Find related events
+      const relatedEvents = events.filter(ev => 
+        (asset.marketImpact || ev.marketAssets || []).includes(asset.id) ||
+        (ev.marketImpact || []).includes(asset.id)
+      );
+      
+      showPriceAlert(asset, changePct, dirWord, dir, col, relatedEvents);
+    }
+  });
+}
+
+// Alert notification system
+let alertQueue = [];
+let alertShowing = false;
+
+function showPriceAlert(asset, changePct, dirWord, dir, col, relatedEvents) {
+  const alert = { asset, changePct, dirWord, dir, col, relatedEvents };
+  alertQueue.push(alert);
+  if (!alertShowing) processAlertQueue();
+}
+
+function processAlertQueue() {
+  if (!alertQueue.length) { alertShowing = false; return; }
+  alertShowing = true;
+  const alert = alertQueue.shift();
+  
+  // Remove existing alert
+  const existing = document.getElementById('priceAlertBanner');
+  if (existing) existing.remove();
+  
+  const banner = document.createElement('div');
+  banner.id = 'priceAlertBanner';
+  banner.style.cssText = `
+    position:fixed; top:60px; right:16px; z-index:2000;
+    background:var(--surface2); border:1px solid ${alert.col};
+    padding:10px 14px; border-radius:3px; max-width:280px;
+    font-family:var(--mono); font-size:11px;
+    box-shadow:0 4px 20px rgba(0,0,0,0.6);
+    animation:slideInRight 0.3s ease;
+  `;
+  
+  const relText = alert.relatedEvents.length 
+    ? `<div style="margin-top:6px;color:var(--text-dim);font-size:10px">⚡ Possible trigger: ${alert.relatedEvents[0].title.slice(0,50)}…</div>`
+    : '';
+  
+  banner.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <span style="color:${alert.col};font-weight:700">${alert.dir} ${alert.asset.name} ${alert.dirWord}</span>
+      <button onclick="this.parentElement.parentElement.remove()" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:14px">✕</button>
+    </div>
+    <div style="font-size:13px;color:var(--text)">${(alert.changePct>0?'+':'')+alert.changePct.toFixed(2)}% in last 30s</div>
+    ${relText}
+  `;
+  
+  document.body.appendChild(banner);
+  setTimeout(() => { banner.remove(); setTimeout(processAlertQueue, 500); }, 8000);
+}
+
+async function fetchBTC() {
+  try {
+    const r = await fetchT('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true&include_24hr_vol=true', 6000);
+    const d = await r.json();
+    const price = d.bitcoin.usd;
+    const changePct = d.bitcoin.usd_24h_change;
+    const change = price * changePct / 100;
+    if (!marketData.BTC) marketData.BTC = { history: generateHistory(price, 30) };
+    updateHistory('BTC', price);
+    return { price, change, changePct, history: marketData.BTC.history, live: true };
+  } catch(e) { return null; }
+}
+
+async function fetchYahoo(sym) {
+  try {
+    // Use a CORS proxy for Yahoo Finance
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=1mo`;
+    const r = await fetchT(url, 6000);
+    const d = await r.json();
+    const result = d.chart?.result?.[0];
+    if (!result) return null;
+    const meta = result.meta;
+    const price = meta.regularMarketPrice;
+    const prev = meta.chartPreviousClose || meta.previousClose;
+    const change = price - prev;
+    const changePct = (change / prev) * 100;
+    const closes = result.indicators?.quote?.[0]?.close?.filter(Boolean) || [];
+    return { price, change, changePct, history: closes.slice(-30), live: true };
+  } catch(e) { return null; }
+}
+
+function generateDemoMarket(id) {
+  const bases = { BTC:65000, SPX:547, GOLD:2340, OIL:82, EUR:1.085, NDX:478 };
+  const price = bases[id] * (1 + (Math.random()-0.5)*0.02);
+  const changePct = (Math.random()-0.48)*3;
+  return {
+    price, change: price*changePct/100, changePct,
+    history: generateHistory(price, 30), live: false
+  };
+}
+
+function generateHistory(currentPrice, points) {
+  const history = [];
+  let p = currentPrice * (1 + (Math.random()-0.5)*0.1);
+  for (let i=0; i<points; i++) {
+    p = p * (1 + (Math.random()-0.5)*0.025);
+    history.push(p);
+  }
+  history[history.length-1] = currentPrice;
+  return history;
+}
+
+function updateHistory(id, price) {
+  if (!marketData[id]?.history) return;
+  marketData[id].history.push(price);
+  if (marketData[id].history.length > 60) marketData[id].history.shift();
+}
+
+// ── RENDER MARKET CARDS ───────────────────────────────────────
+function renderMarketCards() {
+  const container = document.getElementById('marketCards');
+  if (!container) return;
+  container.innerHTML = '';
+
+  ASSETS.forEach(asset => {
+    const d = marketData[asset.id];
+    if (!d) return;
+    const up = d.changePct >= 0;
+    const card = document.createElement('div');
+    card.className = 'market-card' + (selectedAsset === asset.id ? ' selected' : '');
+    card.id = 'mcard-' + asset.id;
+
+    const priceStr = asset.id === 'BTC'
+      ? '$' + Math.round(d.price).toLocaleString()
+      : asset.id === 'EUR'
+      ? d.price.toFixed(4)
+      : '$' + d.price.toFixed(2);
+
+    const changeStr = (up?'+':'') + d.changePct.toFixed(2) + '%';
+
+    card.innerHTML = `
+      <div class="mc-top">
+        <span class="mc-name">${asset.icon} ${asset.name}</span>
+        <span class="mc-change ${up?'up':'down'}">${changeStr}</span>
+      </div>
+      <div class="mc-top" style="margin-bottom:6px">
+        <span class="mc-price">${priceStr}</span>
+        ${d.live ? '<span style="font-family:var(--mono);font-size:8px;color:var(--green)">● LIVE</span>' : '<span style="font-family:var(--mono);font-size:8px;color:var(--text-dim)">● DEMO</span>'}
+      </div>
+      <canvas class="mc-chart sparkline" id="spark-${asset.id}" width="220" height="40"></canvas>
+    `;
+    card.onclick = () => showMarketDetail(asset.id);
+    container.appendChild(card);
+
+    // Draw sparkline
+    requestAnimationFrame(() => drawSparkline('spark-'+asset.id, d.history, asset.color, up));
+  });
+}
+
+function drawSparkline(canvasId, data, color, up) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas || !data?.length) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.offsetWidth || 220;
+  const h = canvas.height;
+  canvas.width = w;
+  ctx.clearRect(0,0,w,h);
+
+  const min = Math.min(...data), max = Math.max(...data);
+  const range = max - min || 1;
+  const pts = data.map((v,i) => ({
+    x: (i/(data.length-1))*w,
+    y: h - ((v-min)/range)*(h-4) - 2
+  }));
+
+  // Gradient fill
+  const grad = ctx.createLinearGradient(0,0,0,h);
+  grad.addColorStop(0, color+'40');
+  grad.addColorStop(1, color+'00');
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, h);
+  pts.forEach(p => ctx.lineTo(p.x, p.y));
+  ctx.lineTo(pts[pts.length-1].x, h);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  pts.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Last point dot
+  const last = pts[pts.length-1];
+  ctx.beginPath();
+  ctx.arc(last.x, last.y, 2.5, 0, Math.PI*2);
+  ctx.fillStyle = color;
+  ctx.fill();
+}
+
+// ── SHOW MARKET DETAIL ────────────────────────────────────────
+function showMarketDetail(assetId) {
+  selectedAsset = assetId;
+  const asset = ASSETS.find(a => a.id === assetId);
+  const d = marketData[assetId];
+  if (!asset || !d) return;
+
+  // Update card selection
+  document.querySelectorAll('.market-card').forEach(c => c.classList.remove('selected'));
+  const card = document.getElementById('mcard-'+assetId);
+  if (card) card.classList.add('selected');
+
+  const detail = document.getElementById('marketDetail');
+  if (detail) {
+    detail.classList.add('visible');
+    document.getElementById('mdTitle').textContent = `${asset.icon} ${asset.name} — 30D CHART`;
+    drawBigChart('mdChart', d.history, asset.color);
+    renderAlerts(assetId);
+  }
+}
+
+function drawBigChart(canvasId, data, color) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas || !data?.length) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.offsetWidth || 240;
+  const h = canvas.height || 120;
+  canvas.width = w;
+  ctx.clearRect(0,0,w,h);
+
+  const min = Math.min(...data), max = Math.max(...data);
+  const range = max - min || 1;
+  const pts = data.map((v,i) => ({
+    x: (i/(data.length-1))*w,
+    y: h - ((v-min)/range)*(h-20) - 10
+  }));
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(26,58,92,0.5)';
+  ctx.lineWidth = 1;
+  for (let i=1; i<4; i++) {
+    const y = (h/4)*i;
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke();
+  }
+
+  // Gradient
+  const grad = ctx.createLinearGradient(0,0,0,h);
+  grad.addColorStop(0, color+'50');
+  grad.addColorStop(1, color+'05');
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, h);
+  pts.forEach(p => ctx.lineTo(p.x,p.y));
+  ctx.lineTo(pts[pts.length-1].x, h);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  pts.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Price labels
+  ctx.fillStyle = 'rgba(184,216,238,0.5)';
+  ctx.font = '9px monospace';
+  ctx.fillText(max.toFixed(max>100?0:2), 4, 14);
+  ctx.fillText(min.toFixed(min>100?0:2), 4, h-4);
+
+  // Last dot
+  const last = pts[pts.length-1];
+  ctx.beginPath();
+  ctx.arc(last.x, last.y, 4, 0, Math.PI*2);
+  ctx.fillStyle = color;
+  ctx.fill();
+}
+
+// ── AI RELEVANCE ANALYSIS ─────────────────────────────────────
+const RELEVANCE_RULES = [
+  // { keywords, assets, level, reason }
+  { kw:['oil','petroleum','opec','saudi','iran','iraq','libya','pipeline','energy'],
+    assets:['OIL','SPX','NDX'], level:'high',
+    reason:'Oil supply disruption typically causes crude price spikes and equity volatility.' },
+  { kw:['nuclear','radiation','zaporizhzhia','atomic','warhead'],
+    assets:['GOLD','BTC','OIL'], level:'high',
+    reason:'Nuclear incidents trigger flight to safe-haven assets — gold and sometimes BTC.' },
+  { kw:['war','invasion','military','airstrike','missile','bomb','attack','conflict'],
+    assets:['GOLD','OIL','BTC'], level:'high',
+    reason:'Armed conflict drives investors to safe havens. Gold typically rallies. Oil spikes if Middle East.' },
+  { kw:['earthquake','tsunami','flood','hurricane','disaster','wildfire'],
+    assets:['OIL','SPX'], level:'medium',
+    reason:'Natural disasters affect supply chains and insurance markets. Oil sensitive to Gulf disruptions.' },
+  { kw:['protest','riot','strike','revolution','coup','government'],
+    assets:['EUR','SPX'], level:'medium',
+    reason:'Political instability affects currency confidence and equity risk appetite.' },
+  { kw:['cyber','hack','ransomware','infrastructure'],
+    assets:['BTC','NDX'], level:'medium',
+    reason:'Major cyberattacks can impact tech stocks. BTC sometimes moves as alternative if banking disrupted.' },
+  { kw:['cholera','outbreak','pandemic','virus','disease','health'],
+    assets:['SPX','NDX','EUR'], level:'medium',
+    reason:'Health crises historically cause equity selloffs and currency volatility (COVID-19 precedent).' },
+  { kw:['ukraine','russia','nato','taiwan','china','north korea'],
+    assets:['GOLD','OIL','EUR'], level:'high',
+    reason:'Major geopolitical confrontations between superpowers cause broad market risk-off moves.' },
+  { kw:['train','accident','bridge','mine','ferry'],
+    assets:[], level:'low',
+    reason:'Industrial accidents have limited market impact unless affecting major supply routes.' },
+];
+
+function analyzeEventRelevance() {
+  marketAlerts = [];
+
+  events.forEach(ev => {
+    const text = (ev.title + ' ' + ev.description + ' ' + ev.location).toLowerCase();
+    let bestMatch = null;
+    let bestScore = 0;
+
+    RELEVANCE_RULES.forEach(rule => {
+      const matches = rule.kw.filter(kw => text.includes(kw));
+      if (matches.length > bestScore) {
+        bestScore = matches.length;
+        bestMatch = { ...rule, matches, event: ev };
+      }
+    });
+
+    if (bestMatch && bestScore > 0 && bestMatch.assets.length > 0) {
+      marketAlerts.push(bestMatch);
+      // Tag event with relevance
+      ev.marketRelevance = bestMatch.level;
+      ev.marketAssets = bestMatch.assets;
+    }
+  });
+
+  // Sort by level
+  const order = { high:0, medium:1, low:2 };
+  marketAlerts.sort((a,b) => order[a.level]-order[b.level]);
+
+  // Update marker icons for high-relevance events
+  updateRelevanceMarkers();
+
+  // Update alerts count badge
+  const highCount = marketAlerts.filter(a => a.level==='high').length;
+  if (highCount > 0) {
+    document.getElementById('mktStatus').innerHTML =
+      `<span style="color:var(--red)">⚡ ${highCount} ALERTS</span>`;
+  }
+
+  if (selectedAsset) renderAlerts(selectedAsset);
+}
+
+function updateRelevanceMarkers() {
+  markers.forEach(({marker, ev}) => {
+    if (ev.marketRelevance === 'high') {
+      const el = marker.getElement();
+      if (el) {
+        const pin = el.querySelector('div');
+        if (pin) pin.classList.add('high-relevance-marker');
+      }
+    }
+  });
+}
+
+function renderAlerts(assetId) {
+  const container = document.getElementById('mdAlerts');
+  if (!container) return;
+
+  const relevant = marketAlerts.filter(a => a.assets.includes(assetId));
+  if (!relevant.length) {
+    container.innerHTML = '<div style="font-family:var(--mono);font-size:10px;color:var(--text-dim);padding:8px 0">No significant alerts for this asset.</div>';
+    return;
+  }
+
+  container.innerHTML = '';
+  relevant.slice(0,5).forEach(alert => {
+    const dotColor = alert.level==='high'?'#ff1f40':alert.level==='medium'?'#ffc800':'#00c8f0';
+    const card = document.createElement('div');
+    card.className = `alert-card ${alert.level}`;
+    card.innerHTML = `
+      <div class="alert-header">
+        <span class="relevance-dot" style="background:${dotColor}"></span>
+        <span>${alert.level.toUpperCase()} IMPACT · ${alert.event.type.toUpperCase()}</span>
+      </div>
+      <strong>${alert.event.title}</strong><br>
+      <span style="opacity:0.8">📍 ${alert.event.location}</span><br>
+      <span style="opacity:0.7;font-size:10px">${alert.reason}</span>
+      <div style="margin-top:4px">
+        ${alert.assets.map(a => `<span style="font-family:var(--mono);font-size:9px;background:rgba(255,255,255,0.07);padding:1px 5px;border-radius:2px;margin-right:3px">${a}</span>`).join('')}
+      </div>
+    `;
+    card.onclick = () => {
+      map.setView([alert.event.lat, alert.event.lon], 6, {animate:true});
+      showDetail(alert.event);
+    };
+    container.appendChild(card);
+  });
+}
+
+// ── UPDATE MOBILE MARKETS DRAWER ──────────────────────────────
+function renderMobileMarkets(container) {
+  container.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-bottom:1px solid var(--border)">
+      <span style="font-family:var(--mono);font-size:9px;color:var(--text-dim);letter-spacing:2px">— MARKETS —</span>
+      <button onclick="mobileTab('markets')" style="background:transparent;border:1px solid var(--border);color:var(--text-dim);padding:3px 10px;font-family:var(--mono);font-size:10px;cursor:pointer;border-radius:2px">✕ CLOSE</button>
+    </div>
+    <div id="mmCards" style="display:grid;grid-template-columns:1fr 1fr;gap:0;overflow-y:auto;max-height:28vh"></div>
+    <div style="padding:6px 14px 4px;font-family:var(--mono);font-size:9px;color:var(--text-dim);letter-spacing:2px;border-top:1px solid var(--border)">⚡ ALERTS</div>
+    <div id="mmAlerts" style="padding:4px 10px 8px;overflow-y:auto;max-height:16vh"></div>
+  `;
+  // Render mini cards
+  const cardsDiv = document.getElementById('mmCards');
+  ASSETS.forEach(asset => {
+    const d = marketData[asset.id];
+    if (!d) return;
+    const up = d.changePct >= 0;
+    const priceStr = asset.id==='BTC' ? '$'+Math.round(d.price).toLocaleString()
+      : asset.id==='EUR' ? d.price.toFixed(4) : '$'+d.price.toFixed(2);
+    const el = document.createElement('div');
+    el.className = 'market-card';
+    el.style.cssText = 'padding:7px 10px;border-bottom:1px solid var(--border);border-right:1px solid var(--border)';
+    el.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
+        <span style="font-family:var(--mono);font-size:9px;color:var(--text-dim)">${asset.icon} ${asset.id}</span>
+        <span class="mc-change ${up?'up':'down'}" style="font-size:10px">${(up?'+':'')+d.changePct.toFixed(2)}%</span>
+      </div>
+      <span class="mc-price" style="font-size:12px">${priceStr}</span>
+    `;
+    cardsDiv.appendChild(el);
+  });
+  // Render top alerts
+  const alertsDiv = document.getElementById('mmAlerts');
+  const top = marketAlerts.filter(a => a.level==='high').slice(0,3);
+  if (!top.length) {
+    alertsDiv.innerHTML = '<div style="font-family:var(--mono);font-size:10px;color:var(--text-dim)">No high-impact alerts.</div>';
+  } else {
+    top.forEach(alert => {
+      const el = document.createElement('div');
+      el.className = 'alert-card high';
+      el.style.marginBottom = '6px';
+      el.innerHTML = `<div class="alert-header"><span class="relevance-dot" style="background:#ff1f40"></span>HIGH · ${alert.event.type.toUpperCase()}</div>
+        <strong>${alert.event.title}</strong><br>
+        <span style="opacity:0.7;font-size:10px">${alert.reason.slice(0,80)}…</span>`;
+      alertsDiv.appendChild(el);
+    });
+  }
+}
+
+// ── MARKET REFRESH (every 60s for prices) ────────────────────
+setInterval(fetchMarketData, 30000);
+
+// ── INIT ──────────────────────────────────────────────────────
+const delay = ms => new Promise(r => setTimeout(r,ms));
+
+async function init() {
+  const fill = document.getElementById('loadFill');
+  const txt  = document.getElementById('loadText');
+  const load = document.getElementById('loading');
+
+  // Force-dismiss after 10s
+  const forceClose = setTimeout(() => { load.style.opacity='0'; setTimeout(()=>load.style.display='none',500); },10000);
+
+  const steps = T[lang].load;
+  const setProgress = (pct, msg) => { fill.style.width=pct+'%'; txt.textContent=msg; };
+
+  setProgress(10, steps[0]); await delay(250);
+  initMap();
+  applyMobileLayout();
+  window.addEventListener('resize', applyMobileLayout);
+  renderFilters();
+  setProgress(35, steps[1]); await delay(200);
+  setProgress(60, steps[2]);
+
+  try { await refresh(); } catch(e) { console.warn(e); }
+  fetchMarketData();
+
+  setProgress(90, steps[3]); await delay(150);
+  setProgress(100, steps[4]); await delay(300);
+
+  clearTimeout(forceClose);
+  load.style.opacity='0';
+  setTimeout(() => { load.style.display='none'; if(map) map.invalidateSize(); }, 500);
+
+  setInterval(tickClock, 1000);
+  tickClock();
+  setInterval(refresh, 300000);
+}
+
+init();
+</script>
+
+
+<!-- PWA INSTALL BANNER -->
+<div id="installBanner" style="display:none">
+  <span>📲 Install as app</span>
+  <button onclick="installPWA()">INSTALL</button>
+  <button class="close-banner" onclick="document.getElementById('installBanner').style.display='none'">✕</button>
+</div>
+
+<script>
+// Register service worker for PWA
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js?v=1771659095')
+      .then(reg => console.log('SW registered:', reg.scope))
+      .catch(err => console.log('SW error:', err));
+  });
+}
+
+// PWA Install prompt
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  // Show install banner after 3 seconds
+  setTimeout(() => {
+    const banner = document.getElementById('installBanner');
+    if (banner) banner.style.display = 'flex';
+  }, 3000);
+});
+
+function installPWA() {
+  if (!deferredPrompt) {
+    // iOS instructions
+    alert('To install on iPhone:\n1. Tap the Share button ↑\n2. Scroll down and tap "Add to Home Screen"\n3. Tap "Add"');
+    return;
+  }
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(choice => {
+    deferredPrompt = null;
+    document.getElementById('installBanner').style.display = 'none';
+  });
+}
+
+window.addEventListener('appinstalled', () => {
+  document.getElementById('installBanner').style.display = 'none';
+  deferredPrompt = null;
+});
+</script>
+</body>
+</html>
